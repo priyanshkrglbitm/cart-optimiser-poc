@@ -9,7 +9,15 @@
     "dev": "node --watch -r ts-node/register src/server.ts",
     "watch": "node --watch -r ts-node/register src/server.ts",
     "cli": "ts-node src/cli.ts",
-    "mcp": "ts-node src/mcp/server.ts"
+    "mcp": "ts-node src/mcp/server.ts",
+    "session:capture": "node scripts/capture-session.js",
+    "session:zepto": "node scripts/capture-session.js zepto",
+    "session:instamart": "node scripts/capture-session.js instamart",
+    "session:blinkit": "node scripts/capture-session.js blinkit",
+    "session:jiomart": "node scripts/capture-session.js jiomart",
+    "session:flipkart": "node scripts/capture-session.js flipkart",
+    "session:amazon": "node scripts/capture-session.js amazon",
+    "session:bigbasket": "node scripts/capture-session.js bigbasket"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.5.0",
