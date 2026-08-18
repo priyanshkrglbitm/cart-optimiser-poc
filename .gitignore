@@ -22,3 +22,7 @@ yarn-error.log*
 # Temp/Scratch files
 tmp/
 scratch/
+
+# Authenticated browser session files — NEVER commit these!
+# They contain your login cookies. Re-generate with: node scripts/capture-session.js <platform>
+sessions/*.json
