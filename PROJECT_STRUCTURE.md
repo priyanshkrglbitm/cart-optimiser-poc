@@ -9,7 +9,7 @@ Built with **NestJS** (modules, controllers, services, DTOs), the same pattern a
 ## How a request flows
 
 ```
-POST /api/optimize-basket  { items: ["amul butter 500g", "doodh 1L"], location: { ..., pincode } }
+POST /api/basket/optimize  { items: ["amul butter 500g", "doodh 1L"], location: { ..., pincode } }
   → BasketController        checks the body with OptimizeBasketDto (pincode required)
   → BasketService           90s cache, then runs the pipeline:
       → QueryParserService      text → brand / item / size / count (rules + Groq LLM)
@@ -26,6 +26,7 @@ POST /api/optimize-basket  { items: ["amul butter 500g", "doodh 1L"], location: 
 AppModule
  ├─ ConfigModule (global, reads .env)
  ├─ DatabaseModule (global) ── DatabaseService: SQLite price database
+ ├─ ServeStaticModule ── serves public/ (the dashboard)
  └─ BasketModule ── controller + 4 services
      ├─ LlmModule ──────── LlmService
      └─ PlatformsModule ── PlatformsService
@@ -48,6 +49,8 @@ The database is created and filled automatically on first start. `npm run db:see
 
 | File | What it does |
 |---|---|
+| `DEVELOPER_GUIDE.md` | How the app works, one flow per section (starting with the search flow) |
+| `PROJECT_STRUCTURE.md` | This file: what every folder and file contains |
 | `package.json` | Dependencies and npm scripts (`start`, `start:dev`, `build`, `start:prod`, `cli`, `mcp`, `db:seed`) |
 | `nest-cli.json` | Nest CLI settings (source folder, clean `dist/` on build) |
 | `tsconfig.json` | TypeScript settings, including decorators for Nest |
@@ -60,9 +63,10 @@ The database is created and filled automatically on first start. `npm run db:see
 
 | File | What it does |
 |---|---|
-| `main.ts` | Starts the Nest app with the Winston logger, request logging and body validation; serves the dashboard from `public/`; listens on `PORT` (default 3079) |
+| `main.ts` | Starts the Nest app: Winston logger, global `/api` route prefix, body validation, request logging; listens on `PORT` (default 3079) |
 | `logger.config.ts` | Winston logger, same setup as ets-backend: coloured console plus daily rotating files in `logs/`. Line format: `time # level # service # message`. Detail level from `LOG_LEVEL` |
-| `app.module.ts` | Root module: loads `.env`, the database, and `BasketModule` |
+| `app.module.ts` | Root module: `ConfigModule` (`.env`), `DatabaseModule`, `ServeStaticModule` (serves the dashboard from `public/`, except `/api/*`), `BasketModule` |
+| `mcp.ts` | Entry point for `npm run mcp`: starts `McpModule` without HTTP and runs `McpService` |
 | `cli.ts` | Runs one basket from the terminal (`npm run cli -- milk butter`). Starts Nest without the HTTP server and uses `BasketService` |
 
 ### `src/modules/basket/` – the main feature
@@ -70,7 +74,7 @@ The database is created and filled automatically on first start. `npm run db:see
 | File | What it does |
 |---|---|
 | `basket.module.ts` | Wires the controller and services below; imports `LlmModule` and `PlatformsModule` |
-| `basket.controller.ts` | `POST /api/optimize-basket`. Takes the validated body and calls `BasketService` |
+| `basket.controller.ts` | **API entry point.** `@Controller('basket')` + `@Post('optimize')` → `POST /api/basket/optimize`. Takes the validated `OptimizeBasketDto` and calls `BasketService` |
 | `dto/optimize-basket.dto.ts` | Request rules: 1–30 items, each up to 100 characters; location with valid latitude/longitude and a 6-digit pincode. Unknown fields are rejected |
 | `basket.service.ts` | Runs the pipeline: parse → fetch → optimize → AI summary. Caches results for 90 seconds and merges identical requests that arrive together |
 | `query-parser.service.ts` | Turns the raw list into structured items. Rules always run, then one Groq call for the whole list improves brand, item name (including Hinglish: doodh → Milk), size and count ("12 eggs"). Cached per item |
@@ -110,11 +114,12 @@ The database is created and filled automatically on first start. `npm run db:see
 | `interceptors/request-logging.interceptor.ts` | Logs every API call: method, path, status, time taken, and the reason when a request is rejected |
 | `utils/normalizer.ts` | Rule helpers: brand detection (brands from the catalog), size extraction ("5kg" → 5000g), piece counts ("12 eggs", "pack of 6"), cleaning the item name |
 
-### `src/mcp/`
+### `src/modules/mcp/` – MCP server (for AI assistants)
 
 | File | What it does |
 |---|---|
-| `mcp-server.ts` | MCP server, so an AI assistant can call the price search as tools: `fetch_prices_across_platforms`, `search_blinkit`, `search_zepto`, `search_instamart` (`npm run mcp`). Starts Nest without the HTTP server and uses the same services |
+| `mcp.module.ts` | Root module for the MCP process: config, database, `BasketModule`, `PlatformsModule`, and `McpService` |
+| `mcp.service.ts` | `@Injectable()` MCP server, so an AI assistant can call the price search as tools: `fetch_prices_across_platforms`, `search_blinkit`, `search_zepto`, `search_instamart`. Gets `PriceFetcherService` and `PlatformsService` by injection |
 
 ### `public/` – the web dashboard (plain HTML, CSS and JS, no build step)
 
@@ -125,7 +130,7 @@ The database is created and filled automatically on first start. `npm run db:see
 | `js/app.js` | Start here. Connects the parts and runs the "Compare prices" button |
 | `js/basket.js` | The shopping list: add, remove, quick presets |
 | `js/location.js` | Map (Google tiles), address search, "use my location", and the pincode filled in from the map. Default: Gopalpatti, Pune (412307) |
-| `js/api.js` | Calls `POST /api/optimize-basket` with a 90-second timeout |
+| `js/api.js` | Calls `POST /api/basket/optimize` with a 90-second timeout |
 | `js/results.js` | Draws the results: sample-data notice, best store vs cheapest split, AI summary, a card per store with fee breakdown and ratings (switch products and the total and fees update), split plan grouped by store |
 | `js/theme.js` | Light/dark toggle; follows the system setting until you pick one |
 | `js/utils.js` | `escapeHtml()` (data is never inserted as raw HTML) and `rupees()` formatting |
