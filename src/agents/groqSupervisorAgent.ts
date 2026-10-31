@@ -25,7 +25,12 @@ export class GroqSupervisorAgent {
   ): Promise<UniversalBasketResponse> {
     const baseResult = await this.fallbackSupervisor.optimizeBasket(rawItemQueries, location);
 
-    if (!this.apiKey) {
+
+    // Check if ANY store returned items. If none did, skip LLM.
+    const anyStoreHasData = baseResult.platformSummaries.some((store: any) => store.items.length > 0 && store.items.some((i: any) => i !== null));
+    
+    if (!baseResult.overallBestSinglePlatform || baseResult.overallBestSinglePlatform.totalCost === 0 || !anyStoreHasData) {
+      console.log(`[GroqSupervisorAgent] 🛑 Skipping LLM generation: No scrapers returned data (or total cost is 0). Saving tokens!`);
       return baseResult;
     }
 
@@ -45,27 +50,65 @@ export class GroqSupervisorAgent {
         `Best Single Store: ${baseResult.overallBestSinglePlatform?.platform?.name} (Total: ₹${baseResult.overallBestSinglePlatform?.totalCost})\n` +
         `Split Basket Extra Savings: ₹${baseResult.splitCartRecommendation.savingsVersusBestSinglePlatform}`;
 
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [{ role: 'user', content: promptText }]
-        })
-      });
+      // Dynamically discover available active models on this key or use standard active models
+      let activeModels: string[] = [];
+      try {
+        const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
+          headers: { 'Authorization': `Bearer ${this.apiKey}` }
+        });
+        if (modelsRes.ok) {
+          const modelsData: any = await modelsRes.json();
+          activeModels = (modelsData.data || [])
+            .map((m: any) => m.id)
+            .filter((id: string) => !id.includes('whisper') && !id.includes('guard') && !id.includes('tts') && !id.includes('distill-specdec'));
+          console.log(`[GroqSupervisorAgent] Auto-discovered ${activeModels.length} active models on Groq:`, activeModels.slice(0, 4).join(', '));
+        }
+      } catch (_) {}
 
-      const data: any = await res.json();
-      
-      if (res.status === 200 && data.choices?.[0]?.message?.content) {
-        const aiSummary = data.choices[0].message.content.trim();
-        console.log(`[GroqSupervisorAgent] 🎉 SUCCESS! Generated AI insights using Llama-3`);
+      const candidateModels = Array.from(new Set([
+        ...activeModels,
+        'llama-3.3-70b-versatile',
+        'llama-3.1-8b-instant',
+        'llama3-70b-8192',
+        'mixtral-8x7b-32768',
+        'qwen-2.5-32b',
+        'deepseek-r1-distill-llama-70b',
+        'llama-3.2-11b-vision-preview',
+        'llama-3.2-3b-preview',
+        'llama-3.2-1b-preview',
+        'gemma2-9b-it'
+      ]));
+
+      let aiSummary: string | null = null;
+
+      for (const model of candidateModels) {
+        try {
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: 'user', content: promptText }]
+            })
+          });
+
+          const data: any = await res.json();
+          if (res.status === 200 && data.choices?.[0]?.message?.content) {
+            aiSummary = data.choices[0].message.content.trim();
+            console.log(`[GroqSupervisorAgent] 🎉 SUCCESS! Generated AI insights using Groq (${model})`);
+            break;
+          }
+        } catch (_) {}
+      }
+
+      if (aiSummary) {
         this.responseCache.set(cacheKey, aiSummary);
-        baseResult.agentLogs.push(`[Groq Llama-3 Insights]: ${aiSummary}`);
+        baseResult.agentLogs.push(`[Groq AI Insights]: ${aiSummary}`);
       } else {
-        console.log(`[GroqSupervisorAgent] ❌ API returned HTTP ${res.status}:`, data.error?.message || 'Unknown error');
+        console.log(`[GroqSupervisorAgent] ❌ All Groq models failed to return insights.`);
       }
 
       return baseResult;

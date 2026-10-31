@@ -35,6 +35,14 @@ export class GeminiSupervisorAgent {
       return baseResult;
     }
 
+    // Check if ANY store failed to return items. If so, skip LLM to save tokens!
+    const allStoresHaveData = baseResult.platformSummaries.every((store: any) => store.items.length > 0 && store.items.every((i: any) => i !== null));
+    
+    if (!baseResult.overallBestSinglePlatform || baseResult.overallBestSinglePlatform.totalCost === 0 || !allStoresHaveData) {
+      console.log(`[GeminiSupervisorAgent] 🛑 Skipping LLM generation: Not all scrapers returned data (or total cost is 0). Saving tokens!`);
+      return baseResult;
+    }
+
     const cacheKey = JSON.stringify({ items: rawItemQueries, store: baseResult.overallBestSinglePlatform?.platform?.name });
     if (this.responseCache.has(cacheKey)) {
       console.log(`[GeminiSupervisorAgent] ⚡ Serving cached AI insights...`);

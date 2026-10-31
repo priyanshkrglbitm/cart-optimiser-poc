@@ -97,85 +97,45 @@ export class InstamartAgent implements ICommerceAgent {
   }
 }
 
+import { BigBasketScraper } from '../services/scrapers/bigBasketScraper';
+
 export class BigBasketAgent implements ICommerceAgent {
   public metadata: PlatformMetadata = {
     id: 'bigbasket',
     name: 'BigBasket',
     type: 'QUICK_COMMERCE',
-    estimatedDelivery: '20-30 mins',
-    baseDeliveryFee: 20,
+    estimatedDelivery: '15-25 mins',
+    baseDeliveryFee: 25,
     freeDeliveryThreshold: 499
   };
 
-  public async searchProduct(query: ParsedItemQuery): Promise<PlatformSearchResult> {
+  private scraper = new BigBasketScraper();
+
+  public async searchProduct(query: ParsedItemQuery, location?: LocationContext): Promise<PlatformSearchResult> {
     const startTime = Date.now();
-    const queryStr = query.rawQuery.toLowerCase();
 
-    let item: ProductItem | null = null;
+    try {
+      const liveItems = await this.scraper.search(query, location);
+      const topMatch = liveItems.length > 0 ? liveItems[0] : null;
 
-    if (queryStr.includes('toor dal') || queryStr.includes('arhar dal')) {
-      item = {
-        id: 'bb_401',
-        platformId: this.metadata.id,
-        platformName: this.metadata.name,
-        platformType: this.metadata.type,
-        rawTitle: 'Tata Sampann Toor Dal/Arhar Dal - Unpolished, 1 kg',
-        brand: 'Tata Sampann',
-        variant: 'Toor Dal',
-        weightGrams: 1000,
-        price: 209,
-        mrp: 245,
-        discountPercentage: 15,
-        inStock: true,
-        productUrl: 'https://bigbasket.com/pd/401',
-        fingerprint: UniversalNormalizer.generateFingerprint('Tata Sampann', 'Toor Dal', 1000),
-        confidenceScore: 0.99
+      return {
+        platform: this.metadata,
+        query: query.rawQuery,
+        matchedProduct: topMatch,
+        matchedProducts: liveItems,
+        status: topMatch ? 'FOUND' : 'NOT_FOUND',
+        latencyMs: Date.now() - startTime
       };
-    } else if (queryStr.includes('butter')) {
-      item = {
-        id: 'bb_402',
-        platformId: this.metadata.id,
-        platformName: this.metadata.name,
-        platformType: this.metadata.type,
-        rawTitle: 'Amul Butter - Pasteurised, 500 g Carton',
-        brand: 'Amul',
-        variant: 'Butter',
-        weightGrams: 500,
-        price: 275,
-        mrp: 280,
-        discountPercentage: 2,
-        inStock: true,
-        productUrl: 'https://bigbasket.com/pd/402',
-        fingerprint: UniversalNormalizer.generateFingerprint('Amul', 'Butter', 500),
-        confidenceScore: 0.99
-      };
-    } else if (queryStr.includes('sunflower oil') || queryStr.includes('oil')) {
-      item = {
-        id: 'bb_403',
-        platformId: this.metadata.id,
-        platformName: this.metadata.name,
-        platformType: this.metadata.type,
-        rawTitle: 'Fortune Sunlite Refined Sunflower Oil, 1 L Pouch',
-        brand: 'Fortune',
-        variant: 'Sunflower Oil',
-        weightGrams: 1000,
-        price: 135,
-        mrp: 165,
-        discountPercentage: 18,
-        inStock: true,
-        productUrl: 'https://bigbasket.com/pd/403',
-        fingerprint: UniversalNormalizer.generateFingerprint('Fortune', 'Sunflower Oil', 1000),
-        confidenceScore: 0.99
+    } catch (err: any) {
+      console.warn(`[BigBasketAgent] Scraper failed: ${err.message}`);
+      return {
+        platform: this.metadata,
+        query: query.rawQuery,
+        matchedProduct: null,
+        matchedProducts: [],
+        status: 'ERROR',
+        latencyMs: Date.now() - startTime
       };
     }
-
-    return {
-      platform: this.metadata,
-      query: query.rawQuery,
-      matchedProduct: item,
-      matchedProducts: item ? [item] : [],
-      status: item ? 'FOUND' : 'NOT_FOUND',
-      latencyMs: Date.now() - startTime
-    };
   }
 }
