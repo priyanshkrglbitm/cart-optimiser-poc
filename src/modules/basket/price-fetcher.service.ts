@@ -1,9 +1,13 @@
-import { LocationContext, ParsedItemQuery, PlatformSearchResult } from '../types';
-import { PLATFORMS, searchPlatform } from '../platforms';
+import { Injectable } from '@nestjs/common';
+import { LocationContext, ParsedItemQuery, PlatformSearchResult } from '../../common/types/commerce.types';
+import { PlatformsService } from '../platforms/platforms.service';
 
-export class PriceFetcher {
+@Injectable()
+export class PriceFetcherService {
+  constructor(private readonly platformsService: PlatformsService) {}
+
   /** Searches every store in parallel for one already-parsed item. */
-  public async fetchPrices(query: ParsedItemQuery, location?: LocationContext): Promise<PlatformSearchResult[]> {
+  async fetchPrices(query: ParsedItemQuery, location?: LocationContext): Promise<PlatformSearchResult[]> {
     // Search by generic category (+ size) so other brands show up as alternatives
     let searchText = query.rawQuery;
     if (query.category) {
@@ -14,8 +18,8 @@ export class PriceFetcher {
       }
     }
 
-    return Promise.all(PLATFORMS.map(async platform => {
-      const result = await searchPlatform(platform, { ...query, rawQuery: searchText }, location);
+    return Promise.all(this.platformsService.platforms.map(async platform => {
+      const result = await this.platformsService.search(platform, { ...query, rawQuery: searchText }, location);
       const products = [...new Map(result.matchedProducts.map(p => [p.id, p])).values()];
 
       // Requested brand first, then cheapest

@@ -1,4 +1,4 @@
-import { ParsedItemQuery, ProductItem } from '../types';
+import { ParsedItemQuery, ProductItem } from '../types/commerce.types';
 
 export class UniversalNormalizer {
   private static KNOWN_BRANDS = [

@@ -3,25 +3,25 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cheerio from 'cheerio';
-import { LocationContext, ProductItem, ParsedItemQuery } from '../../types';
-import { UniversalNormalizer } from '../../core/normalizer';
+import { LocationContext, ProductItem, ParsedItemQuery } from '../../../common/types/commerce.types';
+import { UniversalNormalizer } from '../../../common/utils/normalizer';
 
 puppeteer.use(StealthPlugin());
 
-const SESSION_PATH = path.join(__dirname, '..', '..', '..', 'sessions', 'instamart.json');
+const SESSION_PATH = path.join(__dirname, '..', '..', '..', '..', 'sessions', 'flipkart.json');
 
-export class InstamartScraper {
+export class FlipkartMinutesScraper {
   /**
-   * Search for a product on Instamart using Network Interception, HTML Parsing, and Fallback.
+   * Search for a product on Flipkart Minutes using Network Interception, DOM Parsing, and Fallback.
    */
   public async search(query: ParsedItemQuery, location?: LocationContext): Promise<ProductItem[]> {
     const queryStr = query.rawQuery;
-    const searchUrl = `https://www.swiggy.com/instamart/search?q=${encodeURIComponent(queryStr)}`;
-    const platformId = 'instamart';
-    const platformName = 'Swiggy Instamart';
+    const searchUrl = `https://www.flipkart.com/search?q=${encodeURIComponent(queryStr)}`;
+    const platformId = 'flipkart';
+    const platformName = 'Flipkart Minutes';
 
     const sessionExists = fs.existsSync(SESSION_PATH);
-    console.log(`[InstamartScraper] Launching browser for query: "${queryStr}" [session: ${sessionExists ? '✅ authenticated' : '⚠️ anonymous'}]...`);
+    console.log(`[FlipkartScraper] Launching browser for query: "${queryStr}" [session: ${sessionExists ? '✅ authenticated' : '⚠️ anonymous'}]...`);
     let browser: any = null;
     const interceptedData: any[] = [];
     let pageHtml = '';
@@ -42,10 +42,9 @@ export class InstamartScraper {
           const session = JSON.parse(fs.readFileSync(SESSION_PATH, 'utf-8'));
           let cookiesToSet = session.cookies || [];
           
-          if (location && location.latitude && location.longitude) {
-             cookiesToSet = cookiesToSet.filter((c: any) => c.name !== 'lat' && c.name !== 'lng');
-             cookiesToSet.push({ name: 'lat', value: location.latitude.toString(), domain: '.swiggy.com' });
-             cookiesToSet.push({ name: 'lng', value: location.longitude.toString(), domain: '.swiggy.com' });
+          if (location && location.pincode) {
+             cookiesToSet = cookiesToSet.filter((c: any) => c.name !== 'pincode');
+             cookiesToSet.push({ name: 'pincode', value: location.pincode.toString(), domain: '.flipkart.com' });
           }
 
           if (cookiesToSet.length > 0) {
@@ -60,16 +59,15 @@ export class InstamartScraper {
             }, session.localStorage);
           }
         } catch (e: any) {
-          console.warn(`[InstamartScraper] ⚠️ Failed to restore session: ${e.message}`);
+          console.warn(`[FlipkartScraper] ⚠️ Failed to restore session: ${e.message}`);
         }
-      } else if (location && location.latitude && location.longitude) {
-          await page.setCookie({ name: 'lat', value: location.latitude.toString(), domain: '.swiggy.com' }).catch(() => {});
-          await page.setCookie({ name: 'lng', value: location.longitude.toString(), domain: '.swiggy.com' }).catch(() => {});
+      } else if (location && location.pincode) {
+          await page.setCookie({ name: 'pincode', value: location.pincode.toString(), domain: '.flipkart.com' }).catch(() => {});
       }
 
       if (location) {
         const context = browser.defaultBrowserContext();
-        await context.overridePermissions('https://www.swiggy.com', ['geolocation']).catch(() => {});
+        await context.overridePermissions('https://www.flipkart.com', ['geolocation']).catch(() => {});
         await page.setGeolocation({ latitude: location.latitude, longitude: location.longitude }).catch(() => {});
       }
 
@@ -96,14 +94,13 @@ export class InstamartScraper {
         }
       });
 
-      console.log(`[InstamartScraper] Navigating to ${searchUrl}...`);
+      console.log(`[FlipkartScraper] Navigating to ${searchUrl}...`);
       await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
-
       await new Promise(r => setTimeout(r, 4000));
       pageHtml = await page.content().catch(() => '');
 
     } catch (err: any) {
-      console.error(`[InstamartScraper] Browser error: ${err.message}`);
+      console.error(`[FlipkartScraper] Browser error: ${err.message}`);
     } finally {
       if (browser) {
         await browser.close();
@@ -120,8 +117,8 @@ export class InstamartScraper {
       if (Array.isArray(obj)) {
         for (let item of obj) extractProductsRecursive(item);
       } else {
-        const name = obj.name || obj.title || obj.productName || obj.product_name || obj.display_name;
-        const priceObj = obj.price || obj.sellingPrice || obj.selling_price || obj.offer_price;
+        const name = obj.name || obj.title || obj.productName || obj.product_name;
+        const priceObj = obj.price || obj.sellingPrice || obj.selling_price || obj.final_price || obj.offer_price;
         
         let price = -1;
         if (typeof priceObj === 'number') price = priceObj;
@@ -173,14 +170,18 @@ export class InstamartScraper {
 
     extractProductsRecursive(interceptedData);
 
-    // 3. Fallback: Parse HTML if JSON failed
+    // 3. Fallback: Parse HTML DOM (cheerio)
     if (items.length === 0 && pageHtml) {
       try {
         const $ = cheerio.load(pageHtml);
-        $('[data-testid="item-card"], div[class*="item-card"], div[class*="ProductCard"]').each((_, el) => {
-          const title = $(el).find('[data-testid="item-name"], [class*="itemName"], h3').text().trim();
-          const priceText = $(el).find('[data-testid="item-price"], [class*="price"]').text().trim();
+        $('div[data-id], div._75nlfW, div.slAVV4, div.cPHDOP, div._4ddWXP').each((_, el) => {
+          const title = $(el).find('a.wjcEIp, div.KzDlHZ, a.s1Q9rs, div._4rR01T, a.title, [class*="title"]').first().text().trim();
+          const priceText = $(el).find('div.Nx9bqj, div._30jeq3, div._1_WHN1, [class*="price"]').first().text().trim();
+          const mrpText = $(el).find('div.yRaY8j, div._3I9_wc, div._27UcVY, [class*="strike"]').first().text().trim();
+          
           const price = parseFloat(priceText.replace(/[^0-9.]/g, ''));
+          const mrp = parseFloat(mrpText.replace(/[^0-9.]/g, '')) || price;
+
           if (title && price > 0 && !foundProductNames.has(title)) {
             foundProductNames.add(title);
             items.push({
@@ -195,8 +196,8 @@ export class InstamartScraper {
               weightGrams: 0,
               unitPriceNormalized: price,
               price,
-              mrp: price,
-              discountPercentage: 0,
+              mrp: Math.max(mrp, price),
+              discountPercentage: Math.round(((mrp - price) / mrp) * 100) || 0,
               inStock: true,
               inStockQuantity: 10,
               productUrl: searchUrl,
@@ -210,9 +211,9 @@ export class InstamartScraper {
     }
 
 
-    console.log(`[InstamartScraper] Extracted ${items.length} products!`);
+    console.log(`[FlipkartScraper] Extracted ${items.length} products!`);
     if (items.length > 0) {
-        console.log(`[InstamartScraper] Top match: ${items[0].rawTitle} - ₹${items[0].price}`);
+        console.log(`[FlipkartScraper] Top match: ${items[0].rawTitle} - ₹${items[0].price}`);
     }
 
     return items.slice(0, 15);

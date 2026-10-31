@@ -3,12 +3,12 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cheerio from 'cheerio';
-import { LocationContext, ProductItem, ParsedItemQuery } from '../../types';
-import { UniversalNormalizer } from '../../core/normalizer';
+import { LocationContext, ProductItem, ParsedItemQuery } from '../../../common/types/commerce.types';
+import { UniversalNormalizer } from '../../../common/utils/normalizer';
 
 puppeteer.use(StealthPlugin());
 
-const SESSION_PATH = path.join(__dirname, '..', '..', '..', 'sessions', 'amazon.json');
+const SESSION_PATH = path.join(__dirname, '..', '..', '..', '..', 'sessions', 'amazon.json');
 
 export class AmazonFreshScraper {
   /**

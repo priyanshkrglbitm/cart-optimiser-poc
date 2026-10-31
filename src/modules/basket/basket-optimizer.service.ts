@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import {
   PlatformSearchResult,
   PlatformBasketSummary,
@@ -5,8 +6,8 @@ import {
   SplitCartRecommendation,
   ProductItem,
   ParsedItemQuery
-} from '../types';
-import { UniversalNormalizer } from './normalizer';
+} from '../../common/types/commerce.types';
+import { UniversalNormalizer } from '../../common/utils/normalizer';
 
 interface Candidate {
   platform: PlatformMetadata;
@@ -14,9 +15,10 @@ interface Candidate {
   totalCost: number;    // price × packs needed
 }
 
-export class BasketOptimizer {
+@Injectable()
+export class BasketOptimizerService {
   /** One summary per store: the cheapest way to buy the whole list there, plus delivery fee. */
-  public static calculatePlatformSummaries(
+  calculatePlatformSummaries(
     queries: ParsedItemQuery[],
     allResults: PlatformSearchResult[]
   ): PlatformBasketSummary[] {
@@ -52,7 +54,7 @@ export class BasketOptimizer {
    * Cheapest way to buy the list across stores, counting each store's delivery fee.
    * Tries every combination of stores (7 stores = 127 combos, instant) and keeps the cheapest.
    */
-  public static calculateSplitCart(
+  calculateSplitCart(
     queries: ParsedItemQuery[],
     allResults: PlatformSearchResult[],
     bestSinglePlatformCost: number
@@ -104,12 +106,12 @@ export class BasketOptimizer {
     };
   }
 
-  private static deliveryFee(platform: PlatformMetadata, subtotal: number): number {
+  private deliveryFee(platform: PlatformMetadata, subtotal: number): number {
     return subtotal > 0 && subtotal < platform.freeDeliveryThreshold ? platform.baseDeliveryFee : 0;
   }
 
   /** All in-stock options for one list item across the given results, cheapest first. */
-  private static candidatesFor(query: ParsedItemQuery, results: PlatformSearchResult[]): Candidate[] {
+  private candidatesFor(query: ParsedItemQuery, results: PlatformSearchResult[]): Candidate[] {
     const candidates: Candidate[] = [];
 
     for (const res of results) {
@@ -132,7 +134,7 @@ export class BasketOptimizer {
   }
 
   /** How many packs to buy to reach the asked size, e.g. 1kg asked, 500g pack → 2. */
-  private static packsNeeded(query: ParsedItemQuery, p: ProductItem): number {
+  private packsNeeded(query: ParsedItemQuery, p: ProductItem): number {
     if (query.standardWeightGrams) {
       const packSize = p.weightGrams || p.volumeMl || UniversalNormalizer.extractWeightInGrams(p.rawTitle) || 0;
       if (packSize > 0) return Math.max(1, Math.ceil(query.standardWeightGrams / packSize));

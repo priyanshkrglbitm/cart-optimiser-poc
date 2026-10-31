@@ -1,7 +1,12 @@
-import { BasketService } from './core/basketService';
-import { LocationContext, UniversalBasketResponse } from './types';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { BasketService } from './modules/basket/basket.service';
+import { LocationContext, UniversalBasketResponse } from './common/types/commerce.types';
 
+// Runs one basket from the terminal: npm run cli -- milk "amul butter 500g"
 async function runCli() {
+  // Nest app without the HTTP server, so the same services and config are used
+  const app = await NestFactory.createApplicationContext(AppModule, { logger: ['warn', 'error'] });
   const args = process.argv.slice(2);
   const sampleBasket = args.length > 0 ? args : [
     "Milk",
@@ -11,10 +16,10 @@ async function runCli() {
 
   // Location context (e.g. Bangalore / Mumbai nearby darkstore coordinates)
   const userLocation: LocationContext = {
-    latitude: 12.9716,
-    longitude: 77.5946,
-    address: 'Indiranagar 100ft Road, Bengaluru',
-    city: 'Bengaluru'
+    latitude: 18.508885,
+    longitude: 73.956373,
+    address: 'Gopalpatti, Pune',
+    city: 'Pune'
   };
 
   console.log("==========================================================================");
@@ -24,7 +29,8 @@ async function runCli() {
   console.log(`Basket Items: [ ${sampleBasket.map(i => `"${i}"`).join(', ')} ]\n`);
 
 
-  const response: UniversalBasketResponse = await new BasketService().optimizeBasket(sampleBasket, userLocation);
+  const response: UniversalBasketResponse = await app.get(BasketService).optimizeBasket(sampleBasket, userLocation);
+  await app.close();
   response.agentLogs.forEach(log => console.log(log));
 
   console.log("\n==========================================================================");

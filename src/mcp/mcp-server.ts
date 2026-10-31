@@ -1,17 +1,20 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { PriceFetcher } from '../core/priceFetcher';
-import { UniversalNormalizer } from '../core/normalizer';
-import { PLATFORMS, searchPlatform } from '../platforms';
-import { LocationContext } from '../types';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '../app.module';
+import { UniversalNormalizer } from '../common/utils/normalizer';
+import { LocationContext } from '../common/types/commerce.types';
+import { PriceFetcherService } from '../modules/basket/price-fetcher.service';
+import { PlatformsService } from '../modules/platforms/platforms.service';
 
 export class CommerceMcpServer {
   private server: Server;
-  private priceFetcher: PriceFetcher;
 
-  constructor() {
-    this.priceFetcher = new PriceFetcher();
+  constructor(
+    private readonly priceFetcher: PriceFetcherService,
+    private readonly platformsService: PlatformsService,
+  ) {
     this.server = new Server(
       {
         name: 'universal-commerce-mcp-server',
@@ -39,8 +42,8 @@ export class CommerceMcpServer {
               type: 'object',
               properties: {
                 query: { type: 'string', description: 'Product item query (e.g., Milk, Toor Dal, Butter)' },
-                latitude: { type: 'number', description: 'User latitude (e.g. 12.9716)' },
-                longitude: { type: 'number', description: 'User longitude (e.g. 77.5946)' }
+                latitude: { type: 'number', description: 'User latitude (e.g. 18.508885)' },
+                longitude: { type: 'number', description: 'User longitude (e.g. 73.956373)' }
               },
               required: ['query']
             }
@@ -92,8 +95,8 @@ export class CommerceMcpServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
       const queryStr = (args as any)?.query || '';
-      const lat = (args as any)?.latitude ?? 12.9716;
-      const lng = (args as any)?.longitude ?? 77.5946;
+      const lat = (args as any)?.latitude ?? 18.508885;
+      const lng = (args as any)?.longitude ?? 73.956373;
 
       const location: LocationContext = { latitude: lat, longitude: lng };
       const parsedQuery = UniversalNormalizer.parseQuery(queryStr);
@@ -111,12 +114,12 @@ export class CommerceMcpServer {
         };
       }
 
-      const platform = PLATFORMS.find(p => p.metadata.id === name.replace('search_', ''));
+      const platform = this.platformsService.findById(name.replace('search_', ''));
       if (!platform) {
         throw new Error(`Unknown MCP Tool: ${name}`);
       }
 
-      const result = await searchPlatform(platform, parsedQuery, location);
+      const result = await this.platformsService.search(platform, parsedQuery, location);
 
       return {
         content: [
@@ -132,12 +135,17 @@ export class CommerceMcpServer {
   public async start() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.log('📡 Universal Commerce MCP Server running on stdio transport.');
+    console.error('📡 Universal Commerce MCP Server running on stdio transport.'); // stdout is reserved for MCP messages
   }
 }
 
+async function main() {
+  // Nest app without the HTTP server; logger off because stdout carries the MCP protocol
+  const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
+  await new CommerceMcpServer(app.get(PriceFetcherService), app.get(PlatformsService)).start();
+}
+
 if (require.main === module) {
-  const mcpServer = new CommerceMcpServer();
-  mcpServer.start().catch(console.error);
+  main().catch(console.error);
 }
 

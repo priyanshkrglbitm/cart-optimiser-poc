@@ -1,6 +1,7 @@
-import { ParsedItemQuery } from '../types';
-import { UniversalNormalizer } from './normalizer';
-import { askJson } from '../llm/llmClient';
+import { Injectable } from '@nestjs/common';
+import { ParsedItemQuery } from '../../common/types/commerce.types';
+import { UniversalNormalizer } from '../../common/utils/normalizer';
+import { LlmService } from '../llm/llm.service';
 
 interface LlmItem {
   brand: string | null;
@@ -8,24 +9,29 @@ interface LlmItem {
   weightGrams: number | null;
 }
 
-// Same item text always parses the same way, so each one costs at most one LLM call per server run.
-const llmCache = new Map<string, LlmItem>();
-
 /**
  * Turns the user's raw list ("amul butter 500g", "doodh 1L") into structured queries.
  * Rules always run; the LLM (one call for the whole list) only improves brand/category/weight.
  */
-export async function parseBasket(rawItems: string[]): Promise<ParsedItemQuery[]> {
-  const uncached = [...new Set(rawItems.map(key))].filter(k => !llmCache.has(k));
+@Injectable()
+export class QueryParserService {
+  // Same item text always parses the same way, so each one costs at most one LLM call per server run.
+  private readonly llmCache = new Map<string, LlmItem>();
 
-  if (uncached.length > 0) {
-    const reply = await askJson<{ items: LlmItem[] }>(buildPrompt(uncached));
-    if (reply?.items?.length === uncached.length) {
-      uncached.forEach((k, i) => llmCache.set(k, reply.items[i]));
+  constructor(private readonly llm: LlmService) {}
+
+  async parseBasket(rawItems: string[]): Promise<ParsedItemQuery[]> {
+    const uncached = [...new Set(rawItems.map(key))].filter(k => !this.llmCache.has(k));
+
+    if (uncached.length > 0) {
+      const reply = await this.llm.askJson<{ items: LlmItem[] }>(buildPrompt(uncached));
+      if (reply?.items?.length === uncached.length) {
+        uncached.forEach((k, i) => this.llmCache.set(k, reply.items[i]));
+      }
     }
-  }
 
-  return rawItems.map(raw => mergeWithRules(raw, llmCache.get(key(raw))));
+    return rawItems.map(raw => mergeWithRules(raw, this.llmCache.get(key(raw))));
+  }
 }
 
 const key = (raw: string) => raw.toLowerCase().trim();
