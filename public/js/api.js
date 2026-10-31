@@ -12,7 +12,7 @@ const REQUEST_TIMEOUT_MS = 90_000;
 export async function optimizeBasket(items, location) {
   let res;
   try {
-    res = await fetch('/api/optimize-basket', {
+    res = await fetch('/api/basket/optimize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items, location }),

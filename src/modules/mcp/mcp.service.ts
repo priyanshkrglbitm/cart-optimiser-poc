@@ -1,15 +1,16 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../app.module';
-import { UniversalNormalizer } from '../common/utils/normalizer';
-import { LocationContext } from '../common/types/commerce.types';
-import { PriceFetcherService } from '../modules/basket/price-fetcher.service';
-import { PlatformsService } from '../modules/platforms/platforms.service';
+import { Injectable } from '@nestjs/common';
+import { UniversalNormalizer } from '../../common/utils/normalizer';
+import { LocationContext } from '../../common/types/commerce.types';
+import { PriceFetcherService } from '../basket/price-fetcher.service';
+import { PlatformsService } from '../platforms/platforms.service';
 
-export class CommerceMcpServer {
-  private server: Server;
+/** MCP server: lets an AI assistant call the price search as tools over stdin/stdout. Started by src/mcp.ts. */
+@Injectable()
+export class McpService {
+  private readonly server: Server;
 
   constructor(
     private readonly priceFetcher: PriceFetcherService,
@@ -136,20 +137,9 @@ export class CommerceMcpServer {
     });
   }
 
-  public async start() {
+  async start() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.error('📡 Universal Commerce MCP Server running on stdio transport.'); // stdout is reserved for MCP messages
   }
 }
-
-async function main() {
-  // Nest app without the HTTP server; logger off because stdout carries the MCP protocol
-  const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
-  await new CommerceMcpServer(app.get(PriceFetcherService), app.get(PlatformsService)).start();
-}
-
-if (require.main === module) {
-  main().catch(console.error);
-}
-
