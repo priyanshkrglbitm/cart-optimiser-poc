@@ -23,6 +23,9 @@ yarn-error.log*
 tmp/
 scratch/
 
-# Authenticated browser session files — NEVER commit these!
-# They contain your login cookies. Re-generate with: node scripts/capture-session.js <platform>
-sessions/*.json
+
+# Generated sample price database (npm run db:seed)
+data/
+
+# Winston log files (src/logger.config.ts)
+logs/

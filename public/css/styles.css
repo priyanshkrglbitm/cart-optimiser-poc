@@ -389,6 +389,15 @@ input[type="text"]:focus, .select:focus {
 
 .note { font-size: 0.85rem; color: var(--muted); margin-top: 1rem; }
 
+.sample-note {
+  font-size: 0.82rem;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 1rem;
+}
+
 .split-plan { display: grid; gap: 0.75rem; }
 
 .split-store {

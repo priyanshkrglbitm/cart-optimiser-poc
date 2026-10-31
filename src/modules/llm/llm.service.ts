@@ -30,15 +30,17 @@ export class LlmService {
   /** Returns the model's text reply, or null when the LLM is off or the call fails. */
   async askText(prompt: string): Promise<string | null> {
     if (!this.client) return null;
+    const start = Date.now();
     try {
       const res = await this.client.chat.completions.create({
         model: this.model,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
       });
+      this.logger.log(`askText → ${this.model}: ${Date.now() - start}ms, ${res.usage?.total_tokens ?? '?'} tokens`);
       return res.choices[0]?.message?.content?.trim() || null;
     } catch (err: any) {
-      this.logger.warn(`${this.model} failed: ${err.message}`);
+      this.logger.warn(`askText → ${this.model} failed after ${Date.now() - start}ms: ${err.message}`);
       return null;
     }
   }
@@ -46,6 +48,7 @@ export class LlmService {
   /** Returns the model's reply parsed as JSON, or null on any failure so callers can fall back to rules. */
   async askJson<T>(prompt: string): Promise<T | null> {
     if (!this.client) return null;
+    const start = Date.now();
     try {
       const res = await this.client.chat.completions.create({
         model: this.model,
@@ -53,9 +56,10 @@ export class LlmService {
         temperature: 0,
         response_format: { type: 'json_object' }, // JSON mode: the prompt must mention "JSON"
       });
+      this.logger.log(`askJson → ${this.model}: ${Date.now() - start}ms, ${res.usage?.total_tokens ?? '?'} tokens`);
       return JSON.parse(res.choices[0]?.message?.content || 'null') as T;
     } catch (err: any) {
-      this.logger.warn(`${this.model} JSON call failed: ${err.message}`);
+      this.logger.warn(`askJson → ${this.model} failed after ${Date.now() - start}ms: ${err.message}`);
       return null;
     }
   }

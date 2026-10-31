@@ -14,8 +14,20 @@ export interface PlatformMetadata {
   type: PlatformType;
   estimatedDelivery: string;
   baseDeliveryFee: number;
-  freeDeliveryThreshold: number;
-  iconSvg?: string;
+  freeDeliveryThreshold: number;   // no delivery fee at or above this subtotal
+  handlingFee: number;             // every order
+  platformFee: number;             // every order
+  smallCartFee: number;
+  smallCartThreshold: number;      // small-cart fee below this subtotal
+}
+
+/** Everything a store adds on top of the items, for one order. */
+export interface FeeBreakdown {
+  delivery: number;
+  handling: number;
+  platform: number;
+  smallCart: number;
+  total: number;
 }
 
 export interface ParsedItemQuery {
@@ -49,6 +61,8 @@ export interface ProductItem {
   imageUrl?: string;
   fingerprint: string;
   confidenceScore: number;
+  rating?: number;       // out of 5
+  reviewCount?: number;
   multiplier?: number;
   isSubstituted?: boolean;
 }
@@ -67,8 +81,8 @@ export interface PlatformBasketSummary {
   foundItemsCount: number;
   totalRequestedItems: number;
   subtotalPrice: number;
-  deliveryFee: number;
-  totalCost: number;
+  fees: FeeBreakdown;
+  totalCost: number;   // items + all fees
   isFullyAvailable: boolean;
   items: (ProductItem | null)[];
   alternatives?: (ProductItem[])[];
@@ -76,8 +90,8 @@ export interface PlatformBasketSummary {
 
 export interface SplitCartRecommendation {
   savingsVersusBestSinglePlatform: number;
-  optimizedTotalCost: number; // items + delivery fees
-  deliveryFees: { platform: string; fee: number }[];
+  optimizedTotalCost: number; // items + all fees
+  fees: { platform: string; fees: FeeBreakdown }[];
   assignments: {
     itemQuery: string;
     chosenPlatform: string;

@@ -44,7 +44,7 @@ async function runCli() {
     
     console.log(`\n🏢 ${s.platform.name.padEnd(20)} [${typeBadge}]`);
     console.log(`   Items Subtotal:  ₹${s.subtotalPrice}`);
-    console.log(`   Delivery Fee:    ₹${s.deliveryFee} (Threshold: ₹${s.platform.freeDeliveryThreshold})`);
+    console.log(`   Fees:            ₹${s.fees.total} (delivery ₹${s.fees.delivery}, handling ₹${s.fees.handling}, platform ₹${s.fees.platform}, small cart ₹${s.fees.smallCart})`);
     console.log(`   ---------------------------------------------`);
     console.log(`   TOTAL COST:      ₹${s.totalCost}  (${statusStr})`);
     console.log(`   Selected Items:`);

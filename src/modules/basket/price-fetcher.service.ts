@@ -6,21 +6,11 @@ import { PlatformsService } from '../platforms/platforms.service';
 export class PriceFetcherService {
   constructor(private readonly platformsService: PlatformsService) {}
 
-  /** Searches every store in parallel for one already-parsed item. */
+  /** Searches every store for one already-parsed item. */
   async fetchPrices(query: ParsedItemQuery, location?: LocationContext): Promise<PlatformSearchResult[]> {
-    // Search by generic category (+ size) so other brands show up as alternatives
-    let searchText = query.rawQuery;
-    if (query.category) {
-      searchText = query.category;
-      if (query.standardWeightGrams) {
-        const grams = query.standardWeightGrams;
-        searchText += grams >= 1000 ? ` ${grams / 1000} kg` : ` ${grams} g`;
-      }
-    }
-
-    return Promise.all(this.platformsService.platforms.map(async platform => {
-      const result = await this.platformsService.search(platform, { ...query, rawQuery: searchText }, location);
-      const products = [...new Map(result.matchedProducts.map(p => [p.id, p])).values()];
+    return this.platformsService.platforms.map(platform => {
+      const result = this.platformsService.search(platform, query, location);
+      const products = [...result.matchedProducts];
 
       // Requested brand first, then cheapest
       const brand = query.brand?.toLowerCase();
@@ -29,17 +19,7 @@ export class PriceFetcherService {
         Number(isBrand(b.rawTitle, b.brand)) - Number(isBrand(a.rawTitle, a.brand)) || a.price - b.price
       );
 
-      const status: PlatformSearchResult['status'] = result.status === 'ERROR' ? 'ERROR'
-        : products.length === 0 ? 'NOT_FOUND'
-        : products.some(p => p.inStock) ? 'FOUND' : 'OUT_OF_STOCK';
-
-      return {
-        ...result,
-        query: query.rawQuery, // the optimizer matches results back to items by the user's original text
-        matchedProduct: products[0] || null,
-        matchedProducts: products,
-        status,
-      };
-    }));
+      return { ...result, matchedProduct: products[0] || null, matchedProducts: products };
+    });
   }
 }

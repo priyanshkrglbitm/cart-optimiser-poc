@@ -1,7 +1,7 @@
 {
   "name": "grocery-price-agent-poc",
   "version": "1.0.0",
-  "description": "Grocery basket optimizer: compares quick-commerce prices and finds the cheapest store or split, with Groq LLM parsing",
+  "description": "Grocery basket optimizer: compares quick-commerce prices (sample price database) and finds the cheapest store or split, with Groq LLM parsing",
   "main": "dist/main.js",
   "scripts": {
     "build": "nest build",
@@ -10,13 +10,7 @@
     "start:prod": "node dist/main",
     "cli": "ts-node src/cli.ts",
     "mcp": "ts-node src/mcp/mcp-server.ts",
-    "session:capture": "node scripts/capture-session.js",
-    "session:zepto": "node scripts/capture-session.js zepto",
-    "session:instamart": "node scripts/capture-session.js instamart",
-    "session:blinkit": "node scripts/capture-session.js blinkit",
-    "session:jiomart": "node scripts/capture-session.js jiomart",
-    "session:flipkart": "node scripts/capture-session.js flipkart",
-    "session:bigbasket": "node scripts/capture-session.js bigbasket"
+    "db:seed": "ts-node src/modules/database/seed/run-seed.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.5.0",
@@ -24,23 +18,21 @@
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.2.8",
     "@nestjs/platform-express": "^11.2.8",
-    "axios": "^1.7.9",
-    "cheerio": "^1.2.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dotenv": "^16.4.7",
+    "nest-winston": "^1.10.2",
     "openai": "^4.83.0",
-    "puppeteer": "^25.5.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.24",
     "@nestjs/schematics": "^11.1.0",
     "@types/express": "^4.17.21",
-    "@types/node": "^20.17.16",
+    "@types/node": "^24.19.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   }

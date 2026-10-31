@@ -50,22 +50,24 @@ function draw() {
   if (stores.length === 0) {
     resultsEl.innerHTML = `
       <div class="alert alert-warn">
-        <strong>No store returned prices for this basket.</strong>
-        <p>The stores may have blocked the request, or the items weren't found. Try again later or try simpler item names.</p>
+        <strong>No matching products for this basket.</strong>
+        <p>Try simpler item names, like "milk", "atta 5kg" or "amul butter".</p>
       </div>`;
     return;
   }
 
-  // Stores with every item first, then cheapest
-  stores.sort((a, b) => Number(b.isFullyAvailable) - Number(a.isFullyAvailable) || a.totalCost - b.totalCost);
+  // Same order as the server: stores with every item, then more items found, then cheapest
+  stores.sort((a, b) =>
+    Number(b.isFullyAvailable) - Number(a.isFullyAvailable) || b.foundItemsCount - a.foundItemsCount || a.totalCost - b.totalCost);
   const best = stores[0].isFullyAvailable ? stores[0] : null;
 
   resultsEl.innerHTML = `
+    <p class="sample-note">Sample data: prices, ratings and fees are generated for this demo. They are not real store prices.</p>
     ${summaryHtml(best)}
     ${insightHtml()}
     <h2 class="section-heading">Stores</h2>
     <div class="store-grid">${stores.map(s => storeCardHtml(s, s === best)).join('')}</div>
-    ${noResults.length ? `<p class="note">No prices from ${noResults.map(s => escapeHtml(s.platform.name)).join(', ')}. The store blocked the request or had no match.</p>` : ''}
+    ${noResults.length ? `<p class="note">No matching products at ${noResults.map(s => escapeHtml(s.platform.name)).join(', ')}.</p>` : ''}
     ${splitPlanHtml()}`;
 }
 
@@ -82,7 +84,7 @@ function summaryHtml(best) {
 
   const splitStat = split.assignments.length
     ? `<div class="stat-value">${rupees(split.optimizedTotalCost)}</div>
-       <div class="stat-sub">${orders} order${orders > 1 ? 's' : ''}, delivery included${
+       <div class="stat-sub">${orders} order${orders > 1 ? 's' : ''}, all fees included${
          split.savingsVersusBestSinglePlatform > 0 ? ` · <strong>saves ${rupees(split.savingsVersusBestSinglePlatform)}</strong>` : ''
        }${split.assignments.length < itemCount ? ` · covers ${split.assignments.length} of ${itemCount} items` : ''}</div>`
     : `<div class="stat-value">–</div><div class="stat-sub">Nothing available to split</div>`;
@@ -106,6 +108,22 @@ function insightHtml() {
 
 const lineCost = product => product.price * (product.multiplier || 1);
 
+/** Store fees for one order. Same rules as fees() in src/modules/basket/basket-optimizer.service.ts. */
+function feesFor(platform, subtotal) {
+  if (subtotal <= 0) return { delivery: 0, handling: 0, platform: 0, smallCart: 0, total: 0 };
+  const delivery = subtotal < platform.freeDeliveryThreshold ? platform.baseDeliveryFee : 0;
+  const smallCart = subtotal < platform.smallCartThreshold ? platform.smallCartFee : 0;
+  return { delivery, handling: platform.handlingFee, platform: platform.platformFee, smallCart, total: delivery + platform.handlingFee + platform.platformFee + smallCart };
+}
+
+/** "delivery ₹30 · handling ₹4", or "no fees" */
+function feesText(fees) {
+  const parts = [['delivery', fees.delivery], ['handling', fees.handling], ['platform', fees.platform], ['small cart', fees.smallCart]]
+    .filter(([, amount]) => amount > 0)
+    .map(([label, amount]) => `${label} ${rupees(amount)}`);
+  return parts.length ? parts.join(' · ') : 'no fees';
+}
+
 function storeCardHtml(store, isBest) {
   const p = store.platform;
   return `
@@ -118,8 +136,8 @@ function storeCardHtml(store, isBest) {
         ${isBest ? '<span class="badge">Cheapest</span>' : ''}
       </div>
       <p class="store-total">${rupees(store.totalCost)}</p>
-      <p class="meta">Items ${rupees(store.subtotalPrice)} + delivery ${store.deliveryFee ? rupees(store.deliveryFee) : 'free'}${
-        p.freeDeliveryThreshold ? ` · free above ${rupees(p.freeDeliveryThreshold)}` : ''}</p>
+      <p class="meta">Items ${rupees(store.subtotalPrice)} + fees ${rupees(store.fees.total)}</p>
+      <p class="meta">${feesText(store.fees)}${p.freeDeliveryThreshold ? ` · free delivery above ${rupees(p.freeDeliveryThreshold)}` : ''}</p>
       <p class="availability ${store.isFullyAvailable ? 'ok' : 'partial'}">${store.foundItemsCount} of ${store.totalRequestedItems} items available</p>
       <ul class="lines">${store.items.map((item, i) => lineHtml(store, item, i)).join('')}</ul>
     </article>`;
@@ -147,12 +165,14 @@ function lineHtml(store, item, index) {
     : `<span class="line-product">${escapeHtml(item.rawTitle)}</span>`;
 
   const mrp = item.mrp > item.price ? `<s class="mrp">${rupees(item.mrp * (item.multiplier || 1))}</s>` : '';
+  const rating = item.rating ? `<span class="meta">★ ${item.rating} · ${Number(item.reviewCount || 0).toLocaleString('en-IN')} reviews</span>` : '';
 
   return `
     <li class="line">
       <div class="line-main">
         <span class="line-query">${query} ${packs} ${otherBrand}</span>
         ${product}
+        ${rating}
       </div>
       <div class="line-price">${rupees(lineCost(item))}${mrp}</div>
     </li>`;
@@ -171,8 +191,8 @@ resultsEl.addEventListener('change', e => {
   store.items[index] = chosen;
   const found = store.items.filter(Boolean);
   store.subtotalPrice = found.reduce((sum, item) => sum + lineCost(item), 0);
-  store.deliveryFee = store.subtotalPrice > 0 && store.subtotalPrice < store.platform.freeDeliveryThreshold ? store.platform.baseDeliveryFee : 0;
-  store.totalCost = store.subtotalPrice + store.deliveryFee;
+  store.fees = feesFor(store.platform, store.subtotalPrice);
+  store.totalCost = store.subtotalPrice + store.fees.total;
   store.foundItemsCount = found.length;
   store.isFullyAvailable = found.length === store.totalRequestedItems;
 
@@ -200,7 +220,7 @@ function splitPlanHtml() {
       <p class="note">Splitting doesn't save money here. Order everything from ${escapeHtml(storeName)}.</p>`;
   }
 
-  const feeFor = name => split.deliveryFees?.find(f => f.platform === name)?.fee || 0;
+  const feesOf = name => split.fees.find(f => f.platform === name)?.fees || feesFor({}, 0);
 
   return `
     <h2 class="section-heading">Split plan</h2>
@@ -209,12 +229,12 @@ function splitPlanHtml() {
         <div class="split-store">
           <div class="split-store-head">
             <span>${escapeHtml(storeName)}</span>
-            <span>${rupees(assignments.reduce((sum, a) => sum + a.itemPrice, 0) + feeFor(storeName))}</span>
+            <span>${rupees(assignments.reduce((sum, a) => sum + a.itemPrice, 0) + feesOf(storeName).total)}</span>
           </div>
           <ul>
             ${assignments.map(a => `
               <li><span>${escapeHtml(a.product.rawTitle)}</span><span>${rupees(a.itemPrice)}</span></li>`).join('')}
-            <li class="meta"><span>Delivery</span><span>${feeFor(storeName) ? rupees(feeFor(storeName)) : 'free'}</span></li>
+            <li class="meta"><span>Fees (${feesText(feesOf(storeName))})</span><span>${rupees(feesOf(storeName).total)}</span></li>
           </ul>
         </div>`).join('')}
     </div>`;
