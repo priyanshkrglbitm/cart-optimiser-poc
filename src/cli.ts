@@ -18,6 +18,7 @@ async function runCli() {
   const userLocation: LocationContext = {
     latitude: 18.508885,
     longitude: 73.956373,
+    pincode: '412307',
     address: 'Gopalpatti, Pune',
     city: 'Pune'
   };

@@ -18,6 +18,8 @@ renderEmpty();
 compareButton.addEventListener('click', async () => {
   const items = basket.getItems();
   if (items.length === 0) return showStatus('Add at least one item first.');
+  const location = getLocation();
+  if (!/^[1-9]\d{5}$/.test(location.pincode)) return showStatus('Enter a valid 6-digit pincode. Prices depend on it.');
 
   showStatus('');
   compareButton.disabled = true;
@@ -25,7 +27,7 @@ compareButton.addEventListener('click', async () => {
   renderLoading(items.length);
 
   try {
-    renderResults(await optimizeBasket(items, getLocation()));
+    renderResults(await optimizeBasket(items, location));
   } catch (err) {
     renderError(err.message);
   } finally {

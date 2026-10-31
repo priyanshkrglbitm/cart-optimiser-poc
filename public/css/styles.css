@@ -221,6 +221,9 @@ input[type="text"]:focus, .select:focus {
 
 .row { display: flex; gap: 0.5rem; }
 
+.field { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.field input { max-width: 140px; letter-spacing: 0.05em; }
+
 .map {
   height: 180px;
   margin-top: 0.6rem;

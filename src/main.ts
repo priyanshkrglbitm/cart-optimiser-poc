@@ -21,7 +21,7 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', 'public'));
   app.enableShutdownHooks();
 
-  const port = Number(app.get(ConfigService).get('PORT')) || 3000;
+  const port = Number(app.get(ConfigService).get('PORT')) || 3079;
   await app.listen(port, '127.0.0.1');
 
   const logger = new Logger('Bootstrap');

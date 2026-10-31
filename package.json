@@ -16,7 +16,6 @@
     "session:blinkit": "node scripts/capture-session.js blinkit",
     "session:jiomart": "node scripts/capture-session.js jiomart",
     "session:flipkart": "node scripts/capture-session.js flipkart",
-    "session:amazon": "node scripts/capture-session.js amazon",
     "session:bigbasket": "node scripts/capture-session.js bigbasket"
   },
   "dependencies": {

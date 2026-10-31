@@ -6,14 +6,21 @@ const DEFAULT_POINT = { lat: 18.508885, lng: 73.956373 }; // Gopalpatti, Pune
 /**
  * Sets up the map and inputs.
  * @param {(message: string) => void} showStatus  shows short messages to the user
- * @returns {() => {latitude: number, longitude: number, address: string}}  reads the current location
+ * @returns {() => {latitude: number, longitude: number, pincode: string, address: string}}  reads the current location
  */
 export function initLocation(showStatus) {
   const addressInput = document.getElementById('address-input');
   const detectButton = document.getElementById('detect-location');
   const coordsText = document.getElementById('coords');
+  const pincodeInput = document.getElementById('pincode-input');
 
   let point = { ...DEFAULT_POINT };
+
+  // Stores price by pincode, so every map move updates it. The user can still type one.
+  function setPincode(postcode) {
+    const pin = String(postcode || '').replace(/\s/g, '');
+    if (/^[1-9]\d{5}$/.test(pin)) pincodeInput.value = pin;
+  }
 
   const map = L.map('map').setView([point.lat, point.lng], 13);
   // shortcut: Google's public tile URL works without a key but isn't allowed by Google's terms and can be
@@ -39,8 +46,9 @@ export function initLocation(showStatus) {
       const data = await res.json();
       const a = data.address || {};
       addressInput.value = [a.road || a.neighbourhood || a.suburb, a.city || a.town || a.state_district].filter(Boolean).join(', ') || data.display_name || '';
+      setPincode(a.postcode);
     } catch {
-      // The address text is only a label; the coordinates are what we send.
+      // The address text is only a label; the user can type the pincode if this lookup fails.
     }
   }
 
@@ -50,10 +58,12 @@ export function initLocation(showStatus) {
     if (!query) return;
     showStatus('Finding location…');
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(query)}`);
       const [match] = await res.json();
       if (!match) return showStatus(`Couldn't find "${query}". Try a nearby area or city.`);
       setPoint(parseFloat(match.lat), parseFloat(match.lon), 14);
+      if (match.address?.postcode) setPincode(match.address.postcode);
+      else fillAddressFromPoint(parseFloat(match.lat), parseFloat(match.lon)); // area results often have no pincode
       showStatus('');
     } catch {
       showStatus('Location search failed. Check your internet connection.');
@@ -90,5 +100,5 @@ export function initLocation(showStatus) {
 
   setPoint(point.lat, point.lng);
 
-  return () => ({ latitude: point.lat, longitude: point.lng, address: addressInput.value.trim() });
+  return () => ({ latitude: point.lat, longitude: point.lng, pincode: pincodeInput.value.trim(), address: addressInput.value.trim() });
 }

@@ -3,10 +3,12 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsDefined,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -34,10 +36,9 @@ export class LocationDto {
   @MaxLength(100)
   city?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  pincode?: string;
+  /** Stores price and stock by pincode, so this is required */
+  @Matches(/^[1-9]\d{5}$/, { message: '$property must be a valid 6-digit pincode' })
+  pincode!: string;
 }
 
 export class OptimizeBasketDto {
@@ -50,8 +51,8 @@ export class OptimizeBasketDto {
   @MaxLength(100, { each: true })
   items!: string[];
 
-  @IsOptional()
+  @IsDefined({ message: 'location with a pincode is required' })
   @ValidateNested()
   @Type(() => LocationDto)
-  location?: LocationDto;
+  location!: LocationDto;
 }

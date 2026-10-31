@@ -79,7 +79,6 @@ AppModule
 | `scrapers/bigBasketScraper.ts` | BigBasket search page, same approach |
 | `scrapers/jioMartScraper.ts` | JioMart search page, same approach |
 | `scrapers/flipkartMinutesScraper.ts` | Flipkart Minutes search page, same approach |
-| `scrapers/amazonFreshScraper.ts` | Amazon Fresh search page, same approach |
 
 All scrapers work the same way: open a hidden Chrome window (Puppeteer), set the user's location, load the store's search page, record the JSON it loads, and treat anything with a name and a price as a product. A blocked store returns no results; it never makes up prices.
 

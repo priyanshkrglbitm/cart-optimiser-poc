@@ -43,7 +43,8 @@ export class CommerceMcpServer {
               properties: {
                 query: { type: 'string', description: 'Product item query (e.g., Milk, Toor Dal, Butter)' },
                 latitude: { type: 'number', description: 'User latitude (e.g. 18.508885)' },
-                longitude: { type: 'number', description: 'User longitude (e.g. 73.956373)' }
+                longitude: { type: 'number', description: 'User longitude (e.g. 73.956373)' },
+                pincode: { type: 'string', description: '6-digit delivery pincode (e.g. 412307)' }
               },
               required: ['query']
             }
@@ -56,7 +57,8 @@ export class CommerceMcpServer {
               properties: { 
                 query: { type: 'string', description: 'Product search query' },
                 latitude: { type: 'number' },
-                longitude: { type: 'number' }
+                longitude: { type: 'number' },
+                pincode: { type: 'string', description: '6-digit delivery pincode (e.g. 412307)' }
               },
               required: ['query']
             }
@@ -69,7 +71,8 @@ export class CommerceMcpServer {
               properties: { 
                 query: { type: 'string', description: 'Product search query' },
                 latitude: { type: 'number' },
-                longitude: { type: 'number' }
+                longitude: { type: 'number' },
+                pincode: { type: 'string', description: '6-digit delivery pincode (e.g. 412307)' }
               },
               required: ['query']
             }
@@ -82,7 +85,8 @@ export class CommerceMcpServer {
               properties: { 
                 query: { type: 'string', description: 'Product search query' },
                 latitude: { type: 'number' },
-                longitude: { type: 'number' }
+                longitude: { type: 'number' },
+                pincode: { type: 'string', description: '6-digit delivery pincode (e.g. 412307)' }
               },
               required: ['query']
             }
@@ -98,7 +102,7 @@ export class CommerceMcpServer {
       const lat = (args as any)?.latitude ?? 18.508885;
       const lng = (args as any)?.longitude ?? 73.956373;
 
-      const location: LocationContext = { latitude: lat, longitude: lng };
+      const location: LocationContext = { latitude: lat, longitude: lng, pincode: (args as any)?.pincode ?? '412307' };
       const parsedQuery = UniversalNormalizer.parseQuery(queryStr);
       parsedQuery.location = location;
 

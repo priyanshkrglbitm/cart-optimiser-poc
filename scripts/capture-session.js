@@ -35,7 +35,6 @@ const PLATFORM_URLS = {
   blinkit:   'https://blinkit.com',
   jiomart:   'https://www.jiomart.com',
   flipkart:  'https://www.flipkart.com',
-  amazon:    'https://www.amazon.in',
   bigbasket: 'https://www.bigbasket.com'
 };
 
