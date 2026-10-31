@@ -1,36 +1,17 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { 
-  BlinkitAgent, 
-  ZeptoAgent, 
-  InstamartAgent, 
-  BigBasketAgent 
-} from '../agents/quickCommerceAgents';
-import { 
-  AmazonAgent, 
-  FlipkartAgent, 
-  JioMartAgent 
-} from '../agents/eCommerceAgents';
-import { PriceFetcherAgent } from '../agents/priceFetcherAgent';
-import { UniversalNormalizer } from '../services/universalNormalizer';
-import { LocationContext } from '../types/commerce';
+import { PriceFetcher } from '../core/priceFetcher';
+import { UniversalNormalizer } from '../core/normalizer';
+import { PLATFORMS, searchPlatform } from '../platforms';
+import { LocationContext } from '../types';
 
 export class CommerceMcpServer {
   private server: Server;
-  private priceFetcher: PriceFetcherAgent;
-  private agents = {
-    blinkit: new BlinkitAgent(),
-    zepto: new ZeptoAgent(),
-    instamart: new InstamartAgent(),
-    bigbasket: new BigBasketAgent(),
-    amazon: new AmazonAgent(),
-    flipkart: new FlipkartAgent(),
-    jiomart: new JioMartAgent()
-  };
+  private priceFetcher: PriceFetcher;
 
   constructor() {
-    this.priceFetcher = new PriceFetcherAgent();
+    this.priceFetcher = new PriceFetcher();
     this.server = new Server(
       {
         name: 'universal-commerce-mcp-server',
@@ -130,13 +111,12 @@ export class CommerceMcpServer {
         };
       }
 
-      let agentKey = name.replace('search_', '');
-      const agent = (this.agents as any)[agentKey];
-      if (!agent) {
+      const platform = PLATFORMS.find(p => p.metadata.id === name.replace('search_', ''));
+      if (!platform) {
         throw new Error(`Unknown MCP Tool: ${name}`);
       }
 
-      const result = await agent.searchProduct(parsedQuery, location);
+      const result = await searchPlatform(platform, parsedQuery, location);
 
       return {
         content: [

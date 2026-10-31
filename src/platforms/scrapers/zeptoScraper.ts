@@ -2,8 +2,8 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as fs from 'fs';
 import * as path from 'path';
-import { LocationContext, ProductItem, ParsedItemQuery } from '../../types/commerce';
-import { UniversalNormalizer } from '../universalNormalizer';
+import { LocationContext, ProductItem, ParsedItemQuery } from '../../types';
+import { UniversalNormalizer } from '../../core/normalizer';
 
 puppeteer.use(StealthPlugin());
 
@@ -180,10 +180,6 @@ export class ZeptoScraper {
 
     let items = this.parseZeptoApiResponse(interceptedData, platformId, searchUrl);
 
-    if (items.length === 0) {
-      console.log(`[ZeptoScraper] ⚠️ Using realistic catalog estimation.`);
-      items = UniversalNormalizer.generateRealisticFallbackCandidates(platformId, 'Zepto', 'QUICK_COMMERCE', query, searchUrl);
-    }
 
     console.log(`[ZeptoScraper] Extracted ${items.length} products!`);
     if (items.length > 0) {
@@ -240,7 +236,7 @@ export class ZeptoScraper {
               price,
               mrp,
               discountPercentage: Math.round(((mrp - price) / mrp) * 100) || 0,
-              inStock: obj.inventory > 0 || obj.inStock || obj.available || obj.outOfStock === false || true,
+              inStock: UniversalNormalizer.isInStock(obj),
               inStockQuantity: obj.inventory || obj.quantity || obj.availableQuantity || 10,
               productUrl: searchUrl,
               imageUrl: obj.image_url || obj.imageUrl || (obj.images && obj.images[0]) || '',

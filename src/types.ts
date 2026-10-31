@@ -76,7 +76,8 @@ export interface PlatformBasketSummary {
 
 export interface SplitCartRecommendation {
   savingsVersusBestSinglePlatform: number;
-  optimizedTotalCost: number;
+  optimizedTotalCost: number; // items + delivery fees
+  deliveryFees: { platform: string; fee: number }[];
   assignments: {
     itemQuery: string;
     chosenPlatform: string;
@@ -94,10 +95,5 @@ export interface UniversalBasketResponse {
   splitCartRecommendation: SplitCartRecommendation;
   platformSummaries: PlatformBasketSummary[];
   agentLogs: string[];
-}
-
-export interface ICommerceAgent {
-  metadata: PlatformMetadata;
-  searchProduct(query: ParsedItemQuery, location?: LocationContext): Promise<PlatformSearchResult>;
 }
 

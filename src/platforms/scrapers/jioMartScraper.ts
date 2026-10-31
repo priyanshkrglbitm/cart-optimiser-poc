@@ -3,8 +3,8 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cheerio from 'cheerio';
-import { LocationContext, ProductItem, ParsedItemQuery } from '../../types/commerce';
-import { UniversalNormalizer } from '../universalNormalizer';
+import { LocationContext, ProductItem, ParsedItemQuery } from '../../types';
+import { UniversalNormalizer } from '../../core/normalizer';
 
 puppeteer.use(StealthPlugin());
 
@@ -152,7 +152,7 @@ export class JioMartScraper {
                     price: price,
                     mrp: mrp,
                     discountPercentage: Math.round(((mrp - price) / mrp) * 100) || 0,
-                    inStock: obj.inventory > 0 || obj.inStock || obj.in_stock || obj.availability_status !== 'OUT_OF_STOCK' || true,
+                    inStock: UniversalNormalizer.isInStock(obj),
                     inStockQuantity: obj.inventory || obj.quantity || 10,
                     productUrl: searchUrl,
                     imageUrl: obj.image_url || obj.imageUrl || (obj.images && obj.images[0]) || '',
@@ -210,12 +210,6 @@ export class JioMartScraper {
       } catch (_) {}
     }
 
-    // 4. Robust POC fallback
-    if (items.length === 0) {
-      console.log(`[JioMartScraper] ⚠️ Using realistic catalog estimation.`);
-      const fallbacks = UniversalNormalizer.generateRealisticFallbackCandidates(platformId, platformName, 'QUICK_COMMERCE', query, searchUrl);
-      items.push(...fallbacks);
-    }
 
     console.log(`[JioMartScraper] Extracted ${items.length} products!`);
     if (items.length > 0) {

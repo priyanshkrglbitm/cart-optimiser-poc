@@ -1,14 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import dotenv from 'dotenv';
-import { GeminiSupervisorAgent } from './agents/geminiSupervisorAgent';
-import { UniversalBasketResponse } from './types/commerce';
-
-dotenv.config();
+import { config } from './config';
+import { BasketService } from './core/basketService';
+import { isLlmEnabled } from './llm/llmClient';
+import { UniversalBasketResponse } from './types';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = config.port;
 
 app.use(cors());
 app.use(express.json());
@@ -21,17 +20,9 @@ app.use((req, res, next) => {
   next();
 });
 
-import { GroqSupervisorAgent } from './agents/groqSupervisorAgent';
-
-let supervisor: any;
-if (process.env.GROQ_API_KEY && !process.env.GROQ_API_KEY.startsWith('your_')) {
-  supervisor = new GroqSupervisorAgent();
-} else if (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.startsWith('your_')) {
-  supervisor = new GeminiSupervisorAgent();
-} else {
-  console.warn('⚠️ No GEMINI_API_KEY or GROQ_API_KEY found. Falling back to base SupervisorAgent without AI summaries.');
-  const { SupervisorAgent } = require('./agents/supervisorAgent');
-  supervisor = new SupervisorAgent();
+const basketService = new BasketService();
+if (!isLlmEnabled()) {
+  console.warn('⚠️ GROQ_API_KEY not set: running with rule-based parsing and no AI summaries.');
 }
 
 // In-Flight Promise De-duplication and 90-second Memory Cache
@@ -68,7 +59,7 @@ app.post('/api/optimize-basket', async (req, res) => {
     }
 
     // 3. Create active task promise & track in inFlightRequests
-    const taskPromise = supervisor.optimizeBasket(items, location) as Promise<UniversalBasketResponse>;
+    const taskPromise = basketService.optimizeBasket(items, location);
     inFlightRequests.set(cacheKey, taskPromise);
 
     let result: UniversalBasketResponse;
@@ -91,7 +82,7 @@ app.post('/api/optimize-basket', async (req, res) => {
 const startServer = (portToTry: number) => {
   const server = app.listen(portToTry, '127.0.0.1', () => {
     console.log(`\n🚀 Universal Multi-Agent Price Comparison Engine Running!`);
-    console.log(`📡 MCP Protocol & OpenAI LLM Agent Active`);
+    console.log(`🤖 LLM: ${isLlmEnabled() ? config.llm.model : 'off (rules only)'}`);
     console.log(`🌐 Web Dashboard: http://127.0.0.1:${portToTry}`);
     console.log(`📡 API Endpoint:  http://127.0.0.1:${portToTry}/api/optimize-basket\n`);
   });

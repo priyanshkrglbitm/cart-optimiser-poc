@@ -1,10 +1,5 @@
-import { SupervisorAgent } from './agents/supervisorAgent';
-import { GeminiSupervisorAgent } from './agents/geminiSupervisorAgent';
-import { GroqSupervisorAgent } from './agents/groqSupervisorAgent';
-import { LocationContext, UniversalBasketResponse } from './types/commerce';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { BasketService } from './core/basketService';
+import { LocationContext, UniversalBasketResponse } from './types';
 
 async function runCli() {
   const args = process.argv.slice(2);
@@ -29,17 +24,7 @@ async function runCli() {
   console.log(`Basket Items: [ ${sampleBasket.map(i => `"${i}"`).join(', ')} ]\n`);
 
 
-
-  let supervisor: any;
-  if (process.env.GROQ_API_KEY && !process.env.GROQ_API_KEY.startsWith('your_')) {
-    supervisor = new GroqSupervisorAgent();
-  } else if (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.startsWith('your_')) {
-    supervisor = new GeminiSupervisorAgent();
-  } else {
-    supervisor = new SupervisorAgent();
-  }
-
-  const response: UniversalBasketResponse = await supervisor.optimizeBasket(sampleBasket, userLocation);
+  const response: UniversalBasketResponse = await new BasketService().optimizeBasket(sampleBasket, userLocation);
   response.agentLogs.forEach(log => console.log(log));
 
   console.log("\n==========================================================================");

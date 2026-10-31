@@ -3,8 +3,8 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cheerio from 'cheerio';
-import { LocationContext, ProductItem, ParsedItemQuery } from '../../types/commerce';
-import { UniversalNormalizer } from '../universalNormalizer';
+import { LocationContext, ProductItem, ParsedItemQuery } from '../../types';
+import { UniversalNormalizer } from '../../core/normalizer';
 
 puppeteer.use(StealthPlugin());
 
@@ -179,14 +179,6 @@ export class BigBasketScraper {
       return finalProducts;
     }
 
-    // Strategy 3: Realistic catalog fallback
-    console.log(`[BigBasketScraper] ⚠️ Using realistic catalog estimation.`);
-    const fallbackCandidates = UniversalNormalizer.generateRealisticFallbackCandidates(platformId, platformName, 'QUICK_COMMERCE', query, searchUrl);
-    if (fallbackCandidates.length > 0) {
-      console.log(`[BigBasketScraper] Extracted ${fallbackCandidates.length} products!`);
-      console.log(`[BigBasketScraper] Top match: ${fallbackCandidates[0].rawTitle} - ₹${fallbackCandidates[0].price}`);
-      return fallbackCandidates;
-    }
 
     return [];
   }

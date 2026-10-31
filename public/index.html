@@ -1295,6 +1295,7 @@
           splitCartContent.innerHTML = `
             <div style="font-size: 1.3rem; font-weight: 700; color: #10b981; margin-bottom: 0.6rem;">
               Total Cost: ₹${split.optimizedTotalCost} 
+              ${(split.deliveryFees || []).length > 1 ? `<span style="font-size: 0.85rem; opacity: 0.8;">(${split.deliveryFees.length} orders, ₹${split.deliveryFees.reduce((s, f) => s + f.fee, 0)} delivery incl.)</span>` : ''}
               ${split.savingsVersusBestSinglePlatform > 0 ? `<span style="font-size: 0.9rem; color: #a5b4fc;">(Save ₹${split.savingsVersusBestSinglePlatform} extra vs single store!)</span>` : ''}
             </div>
             <div class="split-item-list">

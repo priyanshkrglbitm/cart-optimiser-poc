@@ -2,26 +2,29 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as fs from 'fs';
 import * as path from 'path';
-import { LocationContext, ProductItem, ParsedItemQuery } from '../../types/commerce';
-import { UniversalNormalizer } from '../universalNormalizer';
+import * as cheerio from 'cheerio';
+import { LocationContext, ProductItem, ParsedItemQuery } from '../../types';
+import { UniversalNormalizer } from '../../core/normalizer';
 
 puppeteer.use(StealthPlugin());
 
-const SESSION_PATH = path.join(__dirname, '..', '..', '..', 'sessions', 'blinkit.json');
+const SESSION_PATH = path.join(__dirname, '..', '..', '..', 'sessions', 'instamart.json');
 
-export class BlinkitScraper {
+export class InstamartScraper {
   /**
-   * Search for a product on Blinkit using Network Interception.
+   * Search for a product on Instamart using Network Interception, HTML Parsing, and Fallback.
    */
   public async search(query: ParsedItemQuery, location?: LocationContext): Promise<ProductItem[]> {
     const queryStr = query.rawQuery;
-    const searchUrl = `https://blinkit.com/s/?q=${encodeURIComponent(queryStr)}`;
-    const platformId = 'blinkit';
+    const searchUrl = `https://www.swiggy.com/instamart/search?q=${encodeURIComponent(queryStr)}`;
+    const platformId = 'instamart';
+    const platformName = 'Swiggy Instamart';
 
     const sessionExists = fs.existsSync(SESSION_PATH);
-    console.log(`[BlinkitScraper] Launching browser for query: "${queryStr}" [session: ${sessionExists ? '✅ authenticated' : '⚠️ anonymous'}]...`);
+    console.log(`[InstamartScraper] Launching browser for query: "${queryStr}" [session: ${sessionExists ? '✅ authenticated' : '⚠️ anonymous'}]...`);
     let browser: any = null;
     const interceptedData: any[] = [];
+    let pageHtml = '';
 
     try {
       browser = await puppeteer.launch({
@@ -41,15 +44,14 @@ export class BlinkitScraper {
           
           if (location && location.latitude && location.longitude) {
              cookiesToSet = cookiesToSet.filter((c: any) => c.name !== 'lat' && c.name !== 'lng');
-             cookiesToSet.push({ name: 'lat', value: location.latitude.toString(), domain: '.blinkit.com' });
-             cookiesToSet.push({ name: 'lng', value: location.longitude.toString(), domain: '.blinkit.com' });
+             cookiesToSet.push({ name: 'lat', value: location.latitude.toString(), domain: '.swiggy.com' });
+             cookiesToSet.push({ name: 'lng', value: location.longitude.toString(), domain: '.swiggy.com' });
           }
 
           if (cookiesToSet.length > 0) {
             await page.setCookie(...cookiesToSet);
           }
 
-          // Pre-populate localStorage directly on document initialization (avoids slow double-navigation)
           if (session.localStorage && Object.keys(session.localStorage).length > 0) {
             await page.evaluateOnNewDocument((ls: Record<string, string>) => {
               for (const [key, value] of Object.entries(ls)) {
@@ -58,24 +60,20 @@ export class BlinkitScraper {
             }, session.localStorage);
           }
         } catch (e: any) {
-          console.warn(`[BlinkitScraper] ⚠️ Failed to restore session: ${e.message}`);
+          console.warn(`[InstamartScraper] ⚠️ Failed to restore session: ${e.message}`);
         }
       } else if (location && location.latitude && location.longitude) {
-          await page.setCookie({ name: 'lat', value: location.latitude.toString(), domain: '.blinkit.com' });
-          await page.setCookie({ name: 'lng', value: location.longitude.toString(), domain: '.blinkit.com' });
+          await page.setCookie({ name: 'lat', value: location.latitude.toString(), domain: '.swiggy.com' }).catch(() => {});
+          await page.setCookie({ name: 'lng', value: location.longitude.toString(), domain: '.swiggy.com' }).catch(() => {});
       }
-      // ── End session restore ─────────────────────────────────────────────────
 
-      // Set geolocation if provided
       if (location) {
         const context = browser.defaultBrowserContext();
-        await context.overridePermissions('https://blinkit.com', ['geolocation']);
-        await page.setGeolocation({ latitude: location.latitude, longitude: location.longitude });
+        await context.overridePermissions('https://www.swiggy.com', ['geolocation']).catch(() => {});
+        await page.setGeolocation({ latitude: location.latitude, longitude: location.longitude }).catch(() => {});
       }
 
-      // Optimize page load & Intercept JSON API Responses
       await page.setRequestInterception(true);
-      
       page.on('request', (req: any) => {
         const resourceType = req.resourceType();
         if (['image', 'font', 'media', 'stylesheet'].includes(resourceType)) {
@@ -98,40 +96,14 @@ export class BlinkitScraper {
         }
       });
 
-      console.log(`[BlinkitScraper] Navigating to ${searchUrl}...`);
-      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      console.log(`[InstamartScraper] Navigating to ${searchUrl}...`);
+      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
 
-      // Automatically bypass location select prompts by clicking geolocation buttons
-      await page.evaluate(() => {
-        const elements = Array.from(document.querySelectorAll('button, div, span, p'));
-        const btn = elements.find(el => {
-          const txt = (el.textContent || '').trim().toLowerCase();
-          return txt.includes('detect my location') || 
-                 txt.includes('use current location') || 
-                 txt.includes('detect location');
-        });
-        if (btn) {
-          (btn as HTMLElement).click();
-          console.log('[BlinkitScraper] Clicked location detection button');
-        }
-      });
-
-      // Wait a moment for dynamic API requests to complete
-      await new Promise(r => setTimeout(r, 6000));
-
-      // Extract any JSON embedded directly in the HTML (for Server-Side Rendered apps like Next.js)
-      const embeddedJson = await page.evaluate(() => {
-        const scripts = Array.from(document.querySelectorAll('script[type="application/json"], script#__NEXT_DATA__'));
-        return scripts.map(s => {
-          try { return JSON.parse(s.innerHTML || ''); } catch (e) { return null; }
-        }).filter(Boolean);
-      });
-      if (embeddedJson && embeddedJson.length > 0) {
-        interceptedData.push(...embeddedJson);
-      }
+      await new Promise(r => setTimeout(r, 4000));
+      pageHtml = await page.content().catch(() => '');
 
     } catch (err: any) {
-      console.error(`[BlinkitScraper] Browser error: ${err.message}`);
+      console.error(`[InstamartScraper] Browser error: ${err.message}`);
     } finally {
       if (browser) {
         await browser.close();
@@ -148,26 +120,21 @@ export class BlinkitScraper {
       if (Array.isArray(obj)) {
         for (let item of obj) extractProductsRecursive(item);
       } else {
-        // Look for signature of a product: has a string name/title and a numeric price
-        const name = obj.name || obj.title || obj.product_name || obj.productName;
-        const priceObj = obj.price || obj.sellingPrice || obj.selling_price || obj.unitPrice || obj.unit_price;
+        const name = obj.name || obj.title || obj.productName || obj.product_name || obj.display_name;
+        const priceObj = obj.price || obj.sellingPrice || obj.selling_price || obj.offer_price;
         
         let price = -1;
         if (typeof priceObj === 'number') price = priceObj;
         else if (typeof priceObj === 'string') price = parseFloat(priceObj.replace(/[^0-9.]/g, ''));
 
         if (name && typeof name === 'string' && name.length > 2 && price > 0) {
-            
-            // Extract MRP
-            const mrpObj = obj.mrp || obj.originalPrice || obj.original_price || obj.unitPrice || price;
+            const mrpObj = obj.mrp || obj.originalPrice || obj.original_price || obj.price || price;
             let mrp = -1;
             if (typeof mrpObj === 'number') mrp = mrpObj;
             else if (typeof mrpObj === 'string') mrp = parseFloat(mrpObj.replace(/[^0-9.]/g, ''));
             if (isNaN(mrp) || mrp < price) mrp = price;
 
-            // Handle Paise vs Rupee (if price > 1000, it's likely paise for a grocery item)
-            // Example: 5000 paise = 50 INR
-            if (price > 2000 && Number.isInteger(price)) { 
+            if (price > 1000 && Number.isInteger(price)) { 
                 price = price / 100;
                 mrp = mrp / 100;
             }
@@ -177,7 +144,7 @@ export class BlinkitScraper {
                 items.push({
                     id: `${platformId}_api_${items.length}`,
                     platformId: platformId,
-                    platformName: 'Blinkit',
+                    platformName: platformName,
                     platformType: 'QUICK_COMMERCE',
                     rawTitle: name,
                     brand: obj.brand || 'Unknown',
@@ -188,35 +155,64 @@ export class BlinkitScraper {
                     price: price,
                     mrp: mrp,
                     discountPercentage: Math.round(((mrp - price) / mrp) * 100) || 0,
-                    inStock: obj.inventory > 0 || obj.inStock || obj.in_stock || obj.availability_status === 'IN_STOCK' || true,
+                    inStock: UniversalNormalizer.isInStock(obj),
                     inStockQuantity: obj.inventory || obj.quantity || 10,
                     productUrl: searchUrl,
-                    imageUrl: obj.image_url || obj.imageUrl || '',
+                    imageUrl: obj.image_url || obj.imageUrl || (obj.images && obj.images[0]) || '',
                     fingerprint: UniversalNormalizer.generateFingerprint('Unknown', name, 0),
                     confidenceScore: 0.95
                 });
             }
         } else {
-            // Not a product, recurse down
             for (let key in obj) {
-                if (key !== 'parent' && key !== 'config') { // avoid circular loops
-                    extractProductsRecursive(obj[key]);
-                }
+                if (key !== 'parent' && key !== 'config') extractProductsRecursive(obj[key]);
             }
         }
       }
     }
 
-    // Run the extraction!
     extractProductsRecursive(interceptedData);
 
-    console.log(`[BlinkitScraper] Extracted ${items.length} products from JSON API!`);
-    if (items.length === 0) {
-      console.log(`[BlinkitScraper] ⚠️ Using realistic catalog estimation.`);
-      items.push(...UniversalNormalizer.generateRealisticFallbackCandidates(platformId, 'Blinkit', 'QUICK_COMMERCE', query, searchUrl));
+    // 3. Fallback: Parse HTML if JSON failed
+    if (items.length === 0 && pageHtml) {
+      try {
+        const $ = cheerio.load(pageHtml);
+        $('[data-testid="item-card"], div[class*="item-card"], div[class*="ProductCard"]').each((_, el) => {
+          const title = $(el).find('[data-testid="item-name"], [class*="itemName"], h3').text().trim();
+          const priceText = $(el).find('[data-testid="item-price"], [class*="price"]').text().trim();
+          const price = parseFloat(priceText.replace(/[^0-9.]/g, ''));
+          if (title && price > 0 && !foundProductNames.has(title)) {
+            foundProductNames.add(title);
+            items.push({
+              id: `${platformId}_dom_${items.length}`,
+              platformId,
+              platformName,
+              platformType: 'QUICK_COMMERCE',
+              rawTitle: title,
+              brand: 'Unknown',
+              variant: title,
+              volumeMl: 0,
+              weightGrams: 0,
+              unitPriceNormalized: price,
+              price,
+              mrp: price,
+              discountPercentage: 0,
+              inStock: true,
+              inStockQuantity: 10,
+              productUrl: searchUrl,
+              imageUrl: $(el).find('img').attr('src') || '',
+              fingerprint: UniversalNormalizer.generateFingerprint('Unknown', title, 0),
+              confidenceScore: 0.90
+            });
+          }
+        });
+      } catch (_) {}
     }
+
+
+    console.log(`[InstamartScraper] Extracted ${items.length} products!`);
     if (items.length > 0) {
-        console.log(`[BlinkitScraper] Top match: ${items[0].rawTitle} - ₹${items[0].price}`);
+        console.log(`[InstamartScraper] Top match: ${items[0].rawTitle} - ₹${items[0].price}`);
     }
 
     return items.slice(0, 15);
