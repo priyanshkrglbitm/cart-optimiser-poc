@@ -9,7 +9,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "cli": "ts-node src/cli.ts",
-    "mcp": "ts-node src/mcp/mcp-server.ts",
+    "mcp": "ts-node src/mcp.ts",
     "db:seed": "ts-node src/modules/database/seed/run-seed.ts"
   },
   "dependencies": {
@@ -18,6 +18,7 @@
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.2.8",
     "@nestjs/platform-express": "^11.2.8",
+    "@nestjs/serve-static": "^5.0.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dotenv": "^16.4.7",
