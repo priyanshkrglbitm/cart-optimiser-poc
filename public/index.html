@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SmartBasket</title>
+  <title>SmartBasket · Grocery price optimizer</title>
+  <meta name="description" content="Compare quick-commerce prices and find the cheapest way to buy your groceries.">
 
   <!-- Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,47 +20,241 @@
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true">🛒</span>
-      <span>SmartBasket</span>
-    </div>
-    <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch light or dark theme"></button>
-  </header>
+  <!-- Icons: one sprite, used as <svg class="icon"><use href="#i-name"/></svg> -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <defs>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+      <symbol id="i-basket" viewBox="0 0 24 24"><path d="m15 11-1 9"/><path d="m19 11-4-7"/><path d="M2 11h20"/><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6l1.7-7.4"/><path d="M4.5 15.5h15"/><path d="m5 11 4-7"/><path d="m9 11 1 9"/></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/></symbol>
+      <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></symbol>
+      <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></symbol>
+      <symbol id="i-store" viewBox="0 0 24 24"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></symbol>
+      <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+      <symbol id="i-truck" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+      <symbol id="i-trending-down" viewBox="0 0 24 24"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+      <symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/></symbol>
+    </defs>
+  </svg>
 
-  <main class="layout">
-    <!-- Left: what to buy, and where to deliver -->
-    <aside class="panel">
-      <section class="panel-section">
-        <h2 class="section-title">Delivery location</h2>
-        <div class="row">
-          <input id="address-input" type="text" placeholder="Search an area or city, then press Enter" value="Gopalpatti, Pune">
-          <button id="detect-location" class="btn btn-ghost" type="button" title="Use my current location" aria-label="Use my current location">📍</button>
-        </div>
-        <label class="field">
-          <span>Pincode</span>
-          <input id="pincode-input" type="text" inputmode="numeric" maxlength="6" placeholder="6 digits" value="412307">
-        </label>
-        <div id="map" class="map"></div>
-        <p id="coords" class="hint"></p>
-      </section>
+  <div class="app">
+    <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <a class="brand" href="#top">
+        <span class="brand-logo" aria-hidden="true"><svg class="icon"><use href="#i-basket"/></svg></span>
+        <span class="brand-name">SmartBasket</span>
+      </a>
 
-      <section class="panel-section">
-        <h2 class="section-title">Your basket <span id="item-count" class="count"></span></h2>
-        <form id="add-form" class="row">
-          <input id="item-input" type="text" placeholder="e.g. amul butter 500g, doodh 1L" autocomplete="off" aria-label="Item to add">
-          <button class="btn btn-ghost" type="submit">Add</button>
-        </form>
-        <div id="presets" class="chips"></div>
-        <ul id="basket-list" class="basket-list"></ul>
-      </section>
+      <nav class="nav">
+        <p class="nav-heading">Shop</p>
+        <a class="nav-item is-active" href="#top"><svg class="icon"><use href="#i-home"/></svg>Dashboard</a>
+        <a class="nav-item" href="#basket"><svg class="icon"><use href="#i-basket"/></svg>Smart basket</a>
+        <a class="nav-item" href="#assistant"><svg class="icon"><use href="#i-sparkles"/></svg>AI assistant</a>
+        <a class="nav-item" href="#stores"><svg class="icon"><use href="#i-store"/></svg>Stores</a>
 
-      <button id="compare-btn" class="btn btn-primary btn-block" type="button">Compare prices</button>
-      <p id="status" class="hint status" role="status"></p>
+        <p class="nav-heading">Coming soon</p>
+        <span class="nav-item is-disabled" aria-disabled="true"><svg class="icon"><use href="#i-receipt"/></svg>Orders<span class="soon">Soon</span></span>
+        <span class="nav-item is-disabled" aria-disabled="true"><svg class="icon"><use href="#i-bookmark"/></svg>Saved lists<span class="soon">Soon</span></span>
+        <span class="nav-item is-disabled" aria-disabled="true"><svg class="icon"><use href="#i-bell"/></svg>Price alerts<span class="soon">Soon</span></span>
+        <span class="nav-item is-disabled" aria-disabled="true"><svg class="icon"><use href="#i-tag"/></svg>Coupons<span class="soon">Soon</span></span>
+      </nav>
+
+      <div class="sidebar-promo">
+        <p class="promo-title"><svg class="icon"><use href="#i-sparkles"/></svg>SmartBasket Pro</p>
+        <p>Auto-apply coupons and order from every store in one tap.</p>
+        <button class="btn btn-promo" type="button" disabled>Join the waitlist · soon</button>
+      </div>
+
+      <div class="nav nav-bottom">
+        <span class="nav-item is-disabled" aria-disabled="true"><svg class="icon"><use href="#i-sliders"/></svg>Settings<span class="soon">Soon</span></span>
+        <span class="nav-item is-disabled" aria-disabled="true"><svg class="icon"><use href="#i-help"/></svg>Help centre<span class="soon">Soon</span></span>
+      </div>
     </aside>
+    <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
 
-    <!-- Right: results (filled in by js/results.js) -->
-    <section id="results" class="results" aria-live="polite"></section>
-  </main>
+    <!-- ── Main ────────────────────────────────────────────────────────────── -->
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn only-mobile" id="menu-toggle" type="button" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">
+          <svg class="icon"><use href="#i-menu"/></svg>
+        </button>
+
+        <form class="global-search" id="global-search" role="search">
+          <svg class="icon"><use href="#i-search"/></svg>
+          <input id="global-search-input" type="search" placeholder="Search products or ask the assistant…" aria-label="Search products or ask the assistant" autocomplete="off">
+          <kbd class="kbd" aria-hidden="true">⌘K</kbd>
+        </form>
+
+        <button class="location-pill" id="location-open" type="button" aria-haspopup="dialog">
+          <svg class="icon"><use href="#i-pin"/></svg>
+          <span class="location-text"><span class="location-label">Deliver to</span><span id="location-label">Gopalpatti, Pune · 412307</span></span>
+          <svg class="icon icon-sm"><use href="#i-chevron-down"/></svg>
+        </button>
+
+        <div class="topbar-actions">
+          <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch light or dark theme"></button>
+
+          <div class="menu-wrap">
+            <button class="icon-btn" type="button" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" data-menu="notifications-menu">
+              <svg class="icon"><use href="#i-bell"/></svg><span class="dot" aria-hidden="true"></span>
+            </button>
+            <div class="menu" id="notifications-menu" hidden>
+              <p class="menu-title">Notifications</p>
+              <div class="menu-empty">
+                <svg class="icon"><use href="#i-bell"/></svg>
+                <p><strong>You're all caught up</strong></p>
+                <p class="meta">Price-drop alerts for your favourite items are coming soon.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="menu-wrap">
+            <button class="avatar-btn" type="button" aria-label="Account menu" aria-haspopup="true" aria-expanded="false" data-menu="profile-menu">
+              <span class="avatar" aria-hidden="true">G</span>
+              <span class="avatar-name">Guest</span>
+              <svg class="icon icon-sm"><use href="#i-chevron-down"/></svg>
+            </button>
+            <div class="menu" id="profile-menu" hidden>
+              <div class="menu-profile">
+                <span class="avatar avatar-lg" aria-hidden="true">G</span>
+                <div><p><strong>Guest</strong></p><p class="meta">Sign in to save lists and orders</p></div>
+              </div>
+              <span class="menu-item is-disabled"><svg class="icon"><use href="#i-user"/></svg>Profile<span class="soon">Soon</span></span>
+              <span class="menu-item is-disabled"><svg class="icon"><use href="#i-pin"/></svg>Saved addresses<span class="soon">Soon</span></span>
+              <span class="menu-item is-disabled"><svg class="icon"><use href="#i-wallet"/></svg>Payment methods<span class="soon">Soon</span></span>
+              <button class="btn btn-primary btn-block" type="button" disabled>Sign in · coming soon</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="content" id="top">
+        <div class="page-header">
+          <div>
+            <p class="eyebrow">Dashboard</p>
+            <h1>Find the cheapest basket near you</h1>
+            <p class="page-sub">Compare 6 quick-commerce stores at once, with every fee included.</p>
+          </div>
+          <span class="chip-status"><span class="pulse" aria-hidden="true"></span>Sample prices · demo</span>
+        </div>
+
+        <!-- KPI cards (filled by js/kpis.js) -->
+        <section class="kpis" aria-label="Key numbers">
+          <article class="kpi">
+            <span class="kpi-icon"><svg class="icon"><use href="#i-store"/></svg></span>
+            <div><p class="kpi-label">Stores near you</p><p class="kpi-value" id="kpi-stores">–</p><p class="kpi-sub" id="kpi-stores-sub">Loading…</p></div>
+          </article>
+          <article class="kpi">
+            <span class="kpi-icon"><svg class="icon"><use href="#i-truck"/></svg></span>
+            <div><p class="kpi-label">Free delivery from</p><p class="kpi-value" id="kpi-free">–</p><p class="kpi-sub" id="kpi-free-sub">Loading…</p></div>
+          </article>
+          <article class="kpi">
+            <span class="kpi-icon"><svg class="icon"><use href="#i-wallet"/></svg></span>
+            <div><p class="kpi-label">Best basket total</p><p class="kpi-value" id="kpi-best">–</p><p class="kpi-sub" id="kpi-best-sub">Compare a basket to see it</p></div>
+          </article>
+          <article class="kpi kpi-accent">
+            <span class="kpi-icon"><svg class="icon"><use href="#i-trending-down"/></svg></span>
+            <div><p class="kpi-label">You save vs priciest store</p><p class="kpi-value" id="kpi-saving">–</p><p class="kpi-sub" id="kpi-saving-sub">Compare a basket to see it</p></div>
+          </article>
+        </section>
+
+        <div class="dashboard-grid">
+          <!-- Left: build the basket, then results -->
+          <div class="col-main">
+            <section class="card" id="basket" aria-labelledby="basket-title">
+              <header class="card-header">
+                <div>
+                  <h2 class="card-title" id="basket-title">Smart basket <span id="item-count" class="count"></span></h2>
+                  <p class="card-sub">Add what you need. Sizes, counts and Hinglish work: “atta 5kg”, “12 eggs”, “doodh 1L”.</p>
+                </div>
+              </header>
+              <form id="add-form" class="add-row">
+                <input id="item-input" type="text" placeholder="Add an item, e.g. amul butter 500g" autocomplete="off" aria-label="Item to add">
+                <button class="btn btn-ghost" type="submit"><svg class="icon"><use href="#i-plus"/></svg>Add</button>
+              </form>
+              <div id="presets" class="chips"></div>
+              <ul id="basket-list" class="basket-list"></ul>
+              <div class="card-footer">
+                <p id="status" class="status" role="status"></p>
+                <button id="compare-btn" class="btn btn-primary btn-lg" type="button">Compare prices</button>
+              </div>
+            </section>
+
+            <section id="results" class="results" aria-live="polite"></section>
+          </div>
+
+          <!-- Right: assistant and stores -->
+          <div class="col-side">
+            <section class="card agent-panel" id="assistant" aria-labelledby="assistant-title">
+              <header class="card-header">
+                <div>
+                  <h2 class="card-title" id="assistant-title"><span class="title-icon"><svg class="icon"><use href="#i-sparkles"/></svg></span>AI shopping assistant</h2>
+                  <p class="card-sub">Ask in plain words. It searches, asks, and finds the cheapest store.</p>
+                </div>
+              </header>
+              <div id="agent-messages" class="agent-messages" aria-live="polite"></div>
+              <form id="agent-form" class="agent-form">
+                <input id="agent-input" type="text" placeholder="e.g. atta, butter and 12 eggs" autocomplete="off" aria-label="Message to the assistant">
+                <button class="btn btn-primary btn-icon" type="submit" aria-label="Send"><svg class="icon"><use href="#i-send"/></svg></button>
+              </form>
+            </section>
+
+            <section class="card" id="stores" aria-labelledby="stores-title">
+              <header class="card-header">
+                <div>
+                  <h2 class="card-title" id="stores-title">Stores in your area</h2>
+                  <p class="card-sub">Delivery time and fees we include in every total.</p>
+                </div>
+              </header>
+              <ul class="store-list" id="store-list"><li class="meta">Loading stores…</li></ul>
+            </section>
+          </div>
+        </div>
+
+        <footer class="page-footer">
+          <p>SmartBasket demo · Prices, ratings and fees are sample data, not real store prices.</p>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <!-- ── Delivery location dialog (js/location.js) ─────────────────────────── -->
+  <dialog class="dialog" id="location-dialog" aria-labelledby="location-dialog-title">
+    <header class="dialog-header">
+      <div>
+        <h2 id="location-dialog-title">Delivery location</h2>
+        <p class="meta">Stores and prices depend on your pincode.</p>
+      </div>
+      <button class="icon-btn" type="button" id="location-close" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
+    </header>
+    <div class="dialog-body">
+      <div class="add-row">
+        <input id="address-input" type="text" placeholder="Search an area or city, then press Enter" value="Gopalpatti, Pune">
+        <button id="detect-location" class="btn btn-ghost" type="button"><svg class="icon"><use href="#i-crosshair"/></svg>Use my location</button>
+      </div>
+      <label class="field">
+        <span>Pincode</span>
+        <input id="pincode-input" type="text" inputmode="numeric" maxlength="6" placeholder="6 digits" value="412307">
+      </label>
+      <div id="map" class="map"></div>
+      <p id="coords" class="meta"></p>
+    </div>
+    <footer class="dialog-footer">
+      <button class="btn btn-primary" type="button" id="location-done">Done</button>
+    </footer>
+  </dialog>
 </body>
 </html>

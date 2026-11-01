@@ -50,7 +50,8 @@ export class BasketService {
     }
   }
 
-  async optimizeBasket(rawItems: string[], location?: LocationContext): Promise<UniversalBasketResponse> {
+  /** `withSummary: false` skips the AI summary (the agent writes its own reply). */
+  async optimizeBasket(rawItems: string[], location?: LocationContext, { withSummary = true } = {}): Promise<UniversalBasketResponse> {
     const started = Date.now();
     let stepStart = started;
     const step = (message: string) => {
@@ -104,12 +105,12 @@ export class BasketService {
     };
 
     // 4. Optional 2-line AI summary (skipped when nothing was found)
-    if (overallBest && overallBest.totalCost > 0) {
+    if (withSummary && overallBest && overallBest.totalCost > 0) {
       const summary = await this.summarize(rawItems, response);
       if (summary) logs.push(`[AI Insights]: ${summary}`);
       step(`4/4 AI summary: ${summary ? 'done' : 'skipped (LLM off or failed)'}`);
     } else {
-      step('4/4 AI summary: skipped (no prices found)');
+      step(`4/4 AI summary: skipped (${withSummary ? 'no prices found' : 'not requested'})`);
     }
     this.logger.log(`Done in ${Date.now() - started}ms`);
     return response;

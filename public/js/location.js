@@ -1,4 +1,4 @@
-// Delivery location: map, address search and "use my location".
+// Delivery location dialog: map, address search, "use my location" and pincode, plus the topbar location pill.
 // Uses Google map tiles and Nominatim (free, max 1 request/second) for address lookups.
 
 const DEFAULT_POINT = { lat: 18.508885, lng: 73.956373 }; // Gopalpatti, Pune
@@ -13,13 +13,21 @@ export function initLocation(showStatus) {
   const detectButton = document.getElementById('detect-location');
   const coordsText = document.getElementById('coords');
   const pincodeInput = document.getElementById('pincode-input');
+  const dialog = document.getElementById('location-dialog');
+  const label = document.getElementById('location-label');
 
   let point = { ...DEFAULT_POINT };
+
+  // Topbar pill: "Gopalpatti, Pune · 412307"
+  function updateLabel() {
+    label.textContent = [addressInput.value.trim() || 'Pick a location', pincodeInput.value.trim()].filter(Boolean).join(' · ');
+  }
 
   // Stores price by pincode, so every map move updates it. The user can still type one.
   function setPincode(postcode) {
     const pin = String(postcode || '').replace(/\s/g, '');
     if (/^[1-9]\d{5}$/.test(pin)) pincodeInput.value = pin;
+    updateLabel();
   }
 
   const map = L.map('map').setView([point.lat, point.lng], 13);
@@ -99,6 +107,20 @@ export function initLocation(showStatus) {
   });
 
   setPoint(point.lat, point.lng);
+  updateLabel();
+  pincodeInput.addEventListener('input', updateLabel);
+  addressInput.addEventListener('change', updateLabel);
+
+  // The map lives in a <dialog>; Leaflet must re-measure once the dialog is visible
+  document.getElementById('location-open').addEventListener('click', () => {
+    dialog.showModal();
+    map.invalidateSize();
+    map.setView([point.lat, point.lng], map.getZoom());
+  });
+  const close = () => { updateLabel(); dialog.close(); };
+  document.getElementById('location-close').addEventListener('click', close);
+  document.getElementById('location-done').addEventListener('click', close);
+  dialog.addEventListener('click', e => { if (e.target === dialog) close(); }); // click on the backdrop
 
   return () => ({ latitude: point.lat, longitude: point.lng, pincode: pincodeInput.value.trim(), address: addressInput.value.trim() });
 }

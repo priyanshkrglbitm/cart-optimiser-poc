@@ -30,6 +30,8 @@ AppModule
  └─ BasketModule ── controller + 4 services
      ├─ LlmModule ──────── LlmService
      └─ PlatformsModule ── PlatformsService
+ └─ AgentModule ── AgentController + AgentService (tool loop) + AgentToolsService
+     (imports LlmModule, BasketModule)
 ```
 
 ## Database (`data/basket.db`, SQLite built into Node)
@@ -81,6 +83,18 @@ The database is created and filled automatically on first start. `npm run db:see
 | `price-fetcher.service.ts` | For one item, asks every store for matching products and sorts them: requested brand first, then cheapest |
 | `basket-optimizer.service.ts` | `calculatePlatformSummaries()`: cheapest way to buy the whole list at each store (requested brand preferred), plus that store's fees. `calculateSplitCart()`: tries every combination of stores and picks the cheapest total including each store's fees. `fees()`: delivery, handling, platform and small-cart fee for one order. Also works out how many packs to buy (1kg asked, 500g pack → 2) |
 
+### `src/modules/agent/` – the AI shopping assistant
+
+| File | What it does |
+|---|---|
+| `agent.module.ts` | Wires the agent: imports `LlmModule` and `BasketModule` |
+| `agent.controller.ts` | **API entry point for the chat.** `@Controller('agent')` + `@Post('chat')` → `POST /api/agent/chat` with `AgentChatDto` |
+| `dto/agent-chat.dto.ts` | Request rules: 1–20 messages (user/assistant, ≤ 2000 characters) and a location with a 6-digit pincode |
+| `agent.service.ts` | The tool-calling loop: sends the conversation and tools to the model, runs the tools it asks for, feeds results back, until it answers or asks you a question. System prompt with the agent's rules. Max 6 model calls; friendly message on Groq rate limits |
+| `agent-tools.service.ts` | The tools: `search_products` (top 10 by value, rating and reviews), `optimize_basket` (the full optimizer), and the `ask_user` definition. All prices and maths come from here, never from the model |
+
+See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#agent-flow) for the step-by-step flow.
+
 ### `src/modules/database/` – the price database
 
 | File | What it does |
@@ -96,7 +110,8 @@ The database is created and filled automatically on first start. `npm run db:see
 
 | File | What it does |
 |---|---|
-| `platforms.module.ts` | Provides and exports `PlatformsService` |
+| `platforms.module.ts` | Provides and exports `PlatformsService`; registers `PlatformsController` |
+| `platforms.controller.ts` | `GET /api/platforms`: every store with delivery time and fees (the dashboard's store list and KPI cards) |
 | `platforms.service.ts` | Reads stores and their fees from the database. `search()` finds one list item at one store: first as an exact product type or keyword ("butter", "doodh"), then by every word in the product name, so "milk" doesn't return milk chocolate |
 
 ### `src/modules/llm/` – the AI model
@@ -104,7 +119,7 @@ The database is created and filled automatically on first start. `npm run db:see
 | File | What it does |
 |---|---|
 | `llm.module.ts` | Provides and exports `LlmService` |
-| `llm.service.ts` | The one LLM client (OpenAI SDK pointed at Groq, default model `qwen/qwen3.8-27b`). `askText()` and `askJson()` return `null` on failure so the app keeps working without the LLM. Switch provider or model with `LLM_BASE_URL` / `LLM_MODEL` in `.env` |
+| `llm.service.ts` | The one LLM client (OpenAI SDK pointed at Groq, default model `qwen/qwen3.8-27b`). `askText()` and `askJson()` return `null` on failure so the app keeps working without the LLM; `chat()` does one tool-calling step for the agent. Switch provider or model with `LLM_BASE_URL` / `LLM_MODEL` in `.env` |
 
 ### `src/common/` – shared code
 
@@ -125,12 +140,15 @@ The database is created and filled automatically on first start. `npm run db:see
 
 | File | What it does |
 |---|---|
-| `index.html` | Page layout only: top bar, left panel (location, pincode, basket), right side for results |
-| `css/styles.css` | All styles. Section 1 holds the light and dark colors; the rest is grouped by page part |
+| `index.html` | Page layout only: SVG icon sprite, sidebar (with "Soon" sections), top bar (search, location pill, notifications, profile), KPI cards, smart basket, results, assistant, store list, location dialog |
+| `css/styles.css` | The design system: tokens (light and dark), app shell, controls, dashboard, basket, assistant, stores, results, dialog, responsive rules |
 | `js/app.js` | Start here. Connects the parts and runs the "Compare prices" button |
+| `js/shell.js` | The app frame: mobile sidebar, notifications and profile menus, ⌘K search shortcut, top-bar search sent to the assistant, active sidebar link |
+| `js/kpis.js` | KPI cards and the "Stores in your area" list (from `GET /api/platforms`); best total and saving update on every result |
+| `js/agent.js` | The shopping assistant chat: message bubbles, top-10 tables, tap-to-answer options, "How I got this" steps; draws the agent's price comparison with `results.js` |
 | `js/basket.js` | The shopping list: add, remove, quick presets |
-| `js/location.js` | Map (Google tiles), address search, "use my location", and the pincode filled in from the map. Default: Gopalpatti, Pune (412307) |
-| `js/api.js` | Calls `POST /api/basket/optimize` with a 90-second timeout |
+| `js/location.js` | Location dialog: map (Google tiles), address search, "use my location", pincode filled in from the map, and the top-bar location pill. Default: Gopalpatti, Pune (412307) |
+| `js/api.js` | Calls the API with a 90-second timeout: `optimizeBasket()` → `POST /api/basket/optimize`, `agentChat()` → `POST /api/agent/chat` |
 | `js/results.js` | Draws the results: sample-data notice, best store vs cheapest split, AI summary, a card per store with fee breakdown and ratings (switch products and the total and fees update), split plan grouped by store |
 | `js/theme.js` | Light/dark toggle; follows the system setting until you pick one |
 | `js/utils.js` | `escapeHtml()` (data is never inserted as raw HTML) and `rupees()` formatting |
