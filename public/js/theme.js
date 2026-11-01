@@ -10,7 +10,8 @@ export function initTheme() {
   if (saved) document.documentElement.dataset.theme = saved;
 
   const currentTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? 'dark' : 'light');
-  const updateIcon = () => { button.textContent = currentTheme() === 'dark' ? '☀️' : '🌙'; };
+  // Shows the icon of the theme you'd switch to (icons are in the SVG sprite in index.html)
+  const updateIcon = () => { button.innerHTML = `<svg class="icon"><use href="#i-${currentTheme() === 'dark' ? 'sun' : 'moon'}"/></svg>`; };
 
   button.addEventListener('click', () => {
     const next = currentTheme() === 'dark' ? 'light' : 'dark';

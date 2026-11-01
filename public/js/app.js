@@ -3,6 +3,9 @@
 import { initTheme } from './theme.js';
 import { initLocation } from './location.js';
 import { initBasket } from './basket.js';
+import { initAgent } from './agent.js';
+import { initShell } from './shell.js';
+import { initKpis } from './kpis.js';
 import { optimizeBasket } from './api.js';
 import { renderEmpty, renderLoading, renderResults, renderError } from './results.js';
 
@@ -13,6 +16,9 @@ const showStatus = message => { statusEl.textContent = message; };
 initTheme();
 const getLocation = initLocation(showStatus);
 const basket = initBasket();
+const agent = initAgent(getLocation, renderResults); // the agent's price comparison is drawn in the same results area
+initShell(agent.send); // topbar search goes to the assistant
+initKpis();
 renderEmpty();
 
 compareButton.addEventListener('click', async () => {

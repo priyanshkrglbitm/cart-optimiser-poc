@@ -39,11 +39,17 @@ export function renderResults(response) {
   draw();
 }
 
+/** Tells the rest of the page (KPI cards) that totals changed. */
+function announce() {
+  document.dispatchEvent(new CustomEvent('basket:results', { detail: data }));
+}
+
 // ---------------------------------------------------------------------------
 // Main results view
 // ---------------------------------------------------------------------------
 
 function draw() {
+  announce();
   const stores = data.platformSummaries.filter(s => s.foundItemsCount > 0);
   const noResults = data.platformSummaries.filter(s => s.foundItemsCount === 0);
 
