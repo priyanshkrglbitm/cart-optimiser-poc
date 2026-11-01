@@ -31,9 +31,11 @@ compareButton.addEventListener('click', async () => {
   compareButton.disabled = true;
   compareButton.textContent = 'Comparing…';
   renderLoading(items.length);
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   try {
     renderResults(await optimizeBasket(items, location));
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) {
     renderError(err.message);
   } finally {

@@ -1,5 +1,5 @@
-// The AI shopping assistant chat: sends the conversation to POST /api/agent/chat and shows the reply,
-// tap-to-answer options, the top products it found, and the tool calls it made.
+// The AI shopping assistant: a floating button that opens a chat panel. It sends the conversation to
+// POST /api/agent/chat and shows the reply, tap-to-answer options, the top products it found, and the tool calls it made.
 
 import { agentChat } from './api.js';
 import { escapeHtml, rupees } from './utils.js';
@@ -7,13 +7,25 @@ import { escapeHtml, rupees } from './utils.js';
 /**
  * @param {() => object} getLocation  current delivery location (with pincode)
  * @param {(basket: object) => void} showBasket  draws the full price comparison
- * @returns {{ send: (text: string) => void }}  lets other parts (the topbar search) ask the assistant
+ * @returns {{ send: (text: string) => void }}  lets other parts (the top-bar search) ask the assistant; opens the panel
  */
 export function initAgent(getLocation, showBasket) {
   const list = document.getElementById('agent-messages');
   const form = document.getElementById('agent-form');
   const input = document.getElementById('agent-input');
   const sendButton = form.querySelector('button');
+  const panel = document.getElementById('assistant');
+  const fab = document.getElementById('assistant-fab');
+
+  // Open/close the floating panel
+  function setOpen(open) {
+    panel.hidden = !open;
+    fab.setAttribute('aria-expanded', String(open));
+    if (open) { input.focus(); list.scrollTo({ top: list.scrollHeight }); }
+  }
+  fab.addEventListener('click', () => setOpen(panel.hidden));
+  document.getElementById('assistant-close').addEventListener('click', () => setOpen(false));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) setOpen(false); });
 
   // What the server needs: just the text of each message, oldest first
   const history = [];
@@ -30,10 +42,11 @@ export function initAgent(getLocation, showBasket) {
   async function send(text) {
     const message = text.trim();
     if (!message) return;
+    if (panel.hidden) setOpen(true);
 
     const location = getLocation();
     if (!/^[1-9]\d{5}$/.test(location.pincode)) {
-      addBubble('agent', 'Please enter a valid 6-digit pincode on the left first.');
+      addBubble('agent', 'Please set a valid 6-digit pincode first: use the location button at the top.');
       return;
     }
 
@@ -67,7 +80,12 @@ export function initAgent(getLocation, showBasket) {
   // Tapping an option sends it as the user's answer
   list.addEventListener('click', e => {
     const option = e.target.closest('.agent-option');
-    if (option) send(option.dataset.text);
+    if (option) return send(option.dataset.text);
+    // "View full comparison": close the panel and scroll to the results
+    if (e.target.closest('.agent-show')) {
+      setOpen(false);
+      document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   });
 
   addBubble('agent', 'Hi! Tell me what you want to buy, like "atta, butter and 12 eggs". I\'ll find the best options and the cheapest store.');
@@ -80,7 +98,7 @@ function replyHtml(res) {
   const options = res.options?.length
     ? `<div class="chips">${res.options.map(o => `<button class="chip agent-option" type="button" data-text="${escapeHtml(o)}">${escapeHtml(o)}</button>`).join('')}</div>`
     : '';
-  const basketNote = res.basket ? '<p class="meta">Full price comparison is shown below ↓</p>' : '';
+  const basketNote = res.basket ? '<div class="chips"><button class="chip agent-show" type="button">View full comparison ↓</button></div>' : '';
   const steps = res.steps.length
     ? `<details class="agent-steps"><summary>How I got this (${res.steps.length} step${res.steps.length > 1 ? 's' : ''})</summary><ol>${res.steps
         .map(s => `<li><code>${escapeHtml(s.tool)}</code> ${escapeHtml(JSON.stringify(s.args))} → ${escapeHtml(s.summary)} <span class="meta">(${s.ms} ms)</span></li>`)

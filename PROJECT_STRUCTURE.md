@@ -111,7 +111,7 @@ See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#agent-flow) for the step-by-step flo
 | File | What it does |
 |---|---|
 | `platforms.module.ts` | Provides and exports `PlatformsService`; registers `PlatformsController` |
-| `platforms.controller.ts` | `GET /api/platforms`: every store with delivery time and fees (the dashboard's store list and KPI cards) |
+| `platforms.controller.ts` | `GET /api/platforms`: every store with delivery time and fees (the dashboard's store list and stats) |
 | `platforms.service.ts` | Reads stores and their fees from the database. `search()` finds one list item at one store: first as an exact product type or keyword ("butter", "doodh"), then by every word in the product name, so "milk" doesn't return milk chocolate |
 
 ### `src/modules/llm/` – the AI model
@@ -140,18 +140,18 @@ See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#agent-flow) for the step-by-step flo
 
 | File | What it does |
 |---|---|
-| `index.html` | Page layout only: SVG icon sprite, sidebar (with "Soon" sections), top bar (search, location pill, notifications, profile), KPI cards, smart basket, results, assistant, store list, location dialog |
-| `css/styles.css` | The design system: tokens (light and dark), app shell, controls, dashboard, basket, assistant, stores, results, dialog, responsive rules |
+| `index.html` | Page layout only: SVG icon sprite, calm sidebar (with "Soon" sections), top bar (search, location, notifications, profile), hero with the basket input, stats strip, results, collapsed store list, floating assistant button and panel, location dialog |
+| `css/styles.css` | The design system: tokens (light and dark), app shell, controls, hero and basket tokens, stats, results (winner card, comparison table), assistant button and panel, store list, dialog, responsive rules |
 | `js/app.js` | Start here. Connects the parts and runs the "Compare prices" button |
 | `js/shell.js` | The app frame: mobile sidebar, notifications and profile menus, ⌘K search shortcut, top-bar search sent to the assistant, active sidebar link |
-| `js/kpis.js` | KPI cards and the "Stores in your area" list (from `GET /api/platforms`); best total and saving update on every result |
-| `js/agent.js` | The shopping assistant chat: message bubbles, top-10 tables, tap-to-answer options, "How I got this" steps; draws the agent's price comparison with `results.js` |
-| `js/basket.js` | The shopping list: add, remove, quick presets |
+| `js/kpis.js` | The stats strip (stores, free delivery, your saving) and the collapsed "Stores in your area" list (from `GET /api/platforms`); the saving updates on every result |
+| `js/agent.js` | The floating shopping assistant: opens and closes its panel, message bubbles, top-10 tables, tap-to-answer options, "How I got this" steps, "View full comparison"; draws the agent's price comparison with `results.js` |
+| `js/basket.js` | The basket: items are removable tokens inside the hero input (Backspace removes the last), plus quick suggestions |
 | `js/location.js` | Location dialog: map (Google tiles), address search, "use my location", pincode filled in from the map, and the top-bar location pill. Default: Gopalpatti, Pune (412307) |
 | `js/api.js` | Calls the API with a 90-second timeout: `optimizeBasket()` → `POST /api/basket/optimize`, `agentChat()` → `POST /api/agent/chat` |
-| `js/results.js` | Draws the results: sample-data notice, best store vs cheapest split, AI summary, a card per store with fee breakdown and ratings (switch products and the total and fees update), split plan grouped by store |
-| `js/theme.js` | Light/dark toggle; follows the system setting until you pick one |
-| `js/utils.js` | `escapeHtml()` (data is never inserted as raw HTML) and `rupees()` formatting |
+| `js/results.js` | Draws the results: winner card for the selected store (items, fees, saving, AI summary), a table comparing every store (click a row to switch), and the split tip or plan |
+| `js/theme.js` | Light/dark toggle in the profile menu; follows the system setting until you pick one |
+| `js/utils.js` | `escapeHtml()` (data is never inserted as raw HTML), `rupees()` formatting, and store avatar helpers (`storeAvatar()`, `STORE_COLORS`) |
 
 ## Common commands
 

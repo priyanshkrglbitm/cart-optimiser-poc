@@ -11,7 +11,10 @@ export function initTheme() {
 
   const currentTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? 'dark' : 'light');
   // Shows the icon of the theme you'd switch to (icons are in the SVG sprite in index.html)
-  const updateIcon = () => { button.innerHTML = `<svg class="icon"><use href="#i-${currentTheme() === 'dark' ? 'sun' : 'moon'}"/></svg>`; };
+  const updateIcon = () => {
+    const dark = currentTheme() === 'dark';
+    button.innerHTML = `<svg class="icon"><use href="#i-${dark ? 'sun' : 'moon'}"/></svg>${dark ? 'Light mode' : 'Dark mode'}`;
+  };
 
   button.addEventListener('click', () => {
     const next = currentTheme() === 'dark' ? 'light' : 'dark';

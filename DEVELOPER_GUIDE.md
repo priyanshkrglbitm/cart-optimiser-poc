@@ -36,7 +36,7 @@ sequenceDiagram
     API->>LLM: 4. askText (2-line summary)
     LLM-->>API: summary text
     API-->>UI: JSON response (logged with time)
-    UI->>User: results.js draws summary, store cards, split plan
+    UI->>User: results.js draws winner card, store table, split tip
 ```
 
 ```
@@ -273,17 +273,18 @@ The interceptor logs `POST /api/basket/optimize 200 739ms` and Nest sends it.
 
 `renderResults(data)` saves the response and calls `draw()`:
 
-1. **Sample-data notice** (prices are generated, not real).
-2. `summaryHtml()` — two boxes: **Best single store** and **Cheapest split** (orders, fees included, saving).
-3. `insightHtml()` — the AI summary (`[AI Insights]` line).
-4. `storeCardHtml()` per store that found something — total, "items ₹X + fees ₹Y", fee breakdown, "3 of 3 items available".
-   - `lineHtml()` per item — the user's text, packs needed (2×), "Other brand" tag, product dropdown, price, crossed-out MRP, ★ rating and reviews.
-5. A note listing stores with no matches.
-6. `splitPlanHtml()` — items grouped by store with each store's fees; or "Splitting doesn't save money here".
+1. **Header**: "Best price for your 3 items" with a "Sample prices" tag (prices are generated, not real).
+2. `winnerHtml()` — the **winner card** for the selected store (the cheapest by default):
+   - left: store, **total with fees**, "Items ₹X + fees ₹Y", fee breakdown, "You save ₹35 vs Swiggy Instamart" (or "₹9 more than JioMart Quick" for another store), "3 of 3 items available";
+   - right: `lineHtml()` per item — the user's text, packs needed (2×), "Other brand" tag, product dropdown, price, crossed-out MRP, ★ rating and reviews — and the AI summary (`[AI Insights]` line).
+3. `compareHtml()` — a **table of every store**: items found, fees, total, and "+₹6" against the cheapest. Stores with no matches are listed in one line below it.
+4. `splitHtml()` — one-line tip when splitting saves nothing, or one block per store (with fees) when it does.
 
 All text from the server goes through `escapeHtml()` (`public/js/utils.js`).
 
-**Changing a product in a dropdown** — no server call. The `change` listener in `results.js` swaps the item, recalculates that store's subtotal and `feesFor()` (the browser copy of the server's `fees()`), and redraws.
+**Click a store in the table** — no server call. The card switches to that store's basket (`selectedId`).
+**Change a product in a dropdown** — no server call. The `change` listener swaps the item, recalculates that store's subtotal and `feesFor()` (the browser copy of the server's `fees()`), and redraws.
+**The savings number** in the stats strip updates from the `basket:results` event that `draw()` sends (`public/js/kpis.js`).
 
 ---
 
@@ -334,13 +335,13 @@ tail -f logs/app-$(date +%F).log
 
 ## Agent flow
 
-The shopping assistant chat. The AI model **decides what to do next** (search, compare, ask you), our code **does the work and the maths**, and the result goes back to the model until it can answer.
+The shopping assistant, opened from the floating **Ask assistant** button (bottom right; a bottom sheet on phones). The AI model **decides what to do next** (search, compare, ask you), our code **does the work and the maths**, and the result goes back to the model until it can answer.
 
 ### Agent vs Compare prices
 
 | | Compare prices (search flow) | Shopping assistant (agent flow) |
 |---|---|---|
-| Input | A list in the basket panel | Free chat: "I need atta and butter" |
+| Input | The basket tokens in the hero input | Free chat in the floating assistant: "I need atta and butter" |
 | Who picks the steps | Fixed: parse → prices → optimize → summary | The AI model, by calling tools |
 | Can ask you questions | No | Yes (`ask_user`, with tap-to-answer options) |
 | Shows top 10 products | No | Yes, for vague items |
@@ -448,7 +449,7 @@ Logs:
 - A **top-10 table** per search (product, best price and store, price per unit, rating).
 - **Option chips**: tapping one sends it as your next message.
 - **"How I got this"**: every tool call with its arguments, result and time.
-- If `basket` is present, `renderResults(basket)` (`public/js/results.js`) draws the full price comparison below the chat, the same view as Compare prices.
+- If `basket` is present, `renderResults(basket)` (`public/js/results.js`) draws the full price comparison on the page, the same view as Compare prices, and the reply gets a **View full comparison** button that closes the panel and scrolls to it.
 
 ### Example conversation
 
