@@ -1,8 +1,8 @@
-// The shopping list on the left: add, remove, quick presets.
+// The basket: items are removable tokens inside the hero input, plus quick suggestions.
 
 import { escapeHtml } from './utils.js';
 
-const PRESETS = ['Milk', 'Toor Dal', 'Butter', 'Sunflower Oil', 'Eggs', 'Atta 5kg'];
+const SUGGESTIONS = ['Eggs', 'Atta 5kg', 'Sunflower Oil', 'Doodh 1L', 'Bread', 'Paneer'];
 
 /** @returns {{ getItems: () => string[] }} */
 export function initBasket() {
@@ -11,7 +11,6 @@ export function initBasket() {
   const form = document.getElementById('add-form');
   const input = document.getElementById('item-input');
   const list = document.getElementById('basket-list');
-  const count = document.getElementById('item-count');
   const presets = document.getElementById('presets');
 
   function add(text) {
@@ -22,14 +21,17 @@ export function initBasket() {
   }
 
   function render() {
-    count.textContent = items.length ? `${items.length} item${items.length > 1 ? 's' : ''}` : '';
-    list.innerHTML = items.length
-      ? items.map((item, i) => `
-          <li class="basket-item">
-            <span>${escapeHtml(item)}</span>
-            <button class="remove-btn" type="button" data-index="${i}" aria-label="Remove ${escapeHtml(item)}">×</button>
-          </li>`).join('')
-      : '<li class="basket-empty">Your basket is empty. Add an item above.</li>';
+    list.innerHTML = items.map((item, i) => `
+      <li class="token">
+        <span>${escapeHtml(item)}</span>
+        <button class="token-x" type="button" data-index="${i}" aria-label="Remove ${escapeHtml(item)}">×</button>
+      </li>`).join('');
+    input.placeholder = items.length ? 'Add more, e.g. 12 eggs' : 'Add an item, e.g. 12 eggs';
+
+    // Suggestions that are not in the basket yet
+    const inBasket = new Set(items.map(i => i.toLowerCase()));
+    presets.innerHTML = SUGGESTIONS.filter(s => !inBasket.has(s.toLowerCase()))
+      .map(s => `<button class="chip" type="button" data-item="${escapeHtml(s)}">+ ${escapeHtml(s)}</button>`).join('');
   }
 
   form.addEventListener('submit', e => {
@@ -39,14 +41,22 @@ export function initBasket() {
     input.focus();
   });
 
+  // Backspace in an empty input removes the last item, like a tag field
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !input.value && items.length) {
+      items.pop();
+      render();
+    }
+  });
+
   list.addEventListener('click', e => {
-    const button = e.target.closest('.remove-btn');
+    const button = e.target.closest('.token-x');
     if (!button) return;
     items.splice(Number(button.dataset.index), 1);
     render();
+    input.focus();
   });
 
-  presets.innerHTML = PRESETS.map(p => `<button class="chip" type="button" data-item="${escapeHtml(p)}">+ ${escapeHtml(p)}</button>`).join('');
   presets.addEventListener('click', e => {
     const chip = e.target.closest('.chip');
     if (chip) add(chip.dataset.item);

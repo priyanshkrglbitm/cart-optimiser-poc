@@ -22,7 +22,7 @@ interface ListingRow {
   review_count: number;
 }
 
-const SIZE_WORDS = new Set(['g', 'gm', 'kg', 'ml', 'l', 'ltr', 'litre', 'liter', 'pc', 'pcs', 'pack', 'of', 'x']);
+const SIZE_WORDS = new Set(['g', 'gm', 'gms', 'kg', 'ml', 'l', 'ltr', 'litre', 'liter', 'pc', 'pcs', 'pack', 'of', 'x', 'dozen']);
 
 /**
  * Stores and their prices, read from the price database (src/modules/database).
@@ -70,10 +70,11 @@ export class PlatformsService {
         ORDER BY (? <> '%%' AND lower(p.brand) LIKE ?) DESC, l.price ASC
         LIMIT 50`).all(platform.id, ...params, brand, brand) as unknown as ListingRow[];
 
-    let rows = phrase ? select('p.keywords LIKE ?', `%|${phrase}|%`) : [];
-    if (rows.length === 0) {
-      const words = phrase.split(' ').filter(w => w.length > 1 && !/^\d/.test(w) && !SIZE_WORDS.has(w));
-      if (words.length) rows = select(words.map(() => 'p.search_text LIKE ?').join(' AND '), ...words.map(w => `%${w}%`));
+    // Sizes and counts don't help find the product ("eggs 12" → "eggs", "butter 100g" → "butter")
+    const words = phrase.split(' ').filter(w => w.length > 1 && !/^\d/.test(w) && !SIZE_WORDS.has(w));
+    let rows = words.length ? select('p.keywords LIKE ?', `%|${words.join(' ')}|%`) : [];
+    if (rows.length === 0 && words.length) {
+      rows = select(words.map(() => 'p.search_text LIKE ?').join(' AND '), ...words.map(w => `%${w}%`));
     }
 
     const items = rows.map(row => this.toProductItem(platform, row));

@@ -5,6 +5,7 @@ How the app works, one flow per section. For what every folder and file contains
 ## Contents
 
 - [Search flow](#search-flow): from "Compare prices" to results
+- [Agent flow](#agent-flow): the AI shopping assistant chat (tool-calling loop)
 
 ---
 
@@ -35,7 +36,7 @@ sequenceDiagram
     API->>LLM: 4. askText (2-line summary)
     LLM-->>API: summary text
     API-->>UI: JSON response (logged with time)
-    UI->>User: results.js draws summary, store cards, split plan
+    UI->>User: results.js draws winner card, store table, split tip
 ```
 
 ```
@@ -272,17 +273,18 @@ The interceptor logs `POST /api/basket/optimize 200 739ms` and Nest sends it.
 
 `renderResults(data)` saves the response and calls `draw()`:
 
-1. **Sample-data notice** (prices are generated, not real).
-2. `summaryHtml()` — two boxes: **Best single store** and **Cheapest split** (orders, fees included, saving).
-3. `insightHtml()` — the AI summary (`[AI Insights]` line).
-4. `storeCardHtml()` per store that found something — total, "items ₹X + fees ₹Y", fee breakdown, "3 of 3 items available".
-   - `lineHtml()` per item — the user's text, packs needed (2×), "Other brand" tag, product dropdown, price, crossed-out MRP, ★ rating and reviews.
-5. A note listing stores with no matches.
-6. `splitPlanHtml()` — items grouped by store with each store's fees; or "Splitting doesn't save money here".
+1. **Header**: "Best price for your 3 items" with a "Sample prices" tag (prices are generated, not real).
+2. `winnerHtml()` — the **winner card** for the selected store (the cheapest by default):
+   - left: store, **total with fees**, "Items ₹X + fees ₹Y", fee breakdown, "You save ₹35 vs Swiggy Instamart" (or "₹9 more than JioMart Quick" for another store), "3 of 3 items available";
+   - right: `lineHtml()` per item — the user's text, packs needed (2×), "Other brand" tag, product dropdown, price, crossed-out MRP, ★ rating and reviews — and the AI summary (`[AI Insights]` line).
+3. `compareHtml()` — a **table of every store**: items found, fees, total, and "+₹6" against the cheapest. Stores with no matches are listed in one line below it.
+4. `splitHtml()` — one-line tip when splitting saves nothing, or one block per store (with fees) when it does.
 
 All text from the server goes through `escapeHtml()` (`public/js/utils.js`).
 
-**Changing a product in a dropdown** — no server call. The `change` listener in `results.js` swaps the item, recalculates that store's subtotal and `feesFor()` (the browser copy of the server's `fees()`), and redraws.
+**Click a store in the table** — no server call. The card switches to that store's basket (`selectedId`).
+**Change a product in a dropdown** — no server call. The `change` listener swaps the item, recalculates that store's subtotal and `feesFor()` (the browser copy of the server's `fees()`), and redraws.
+**The savings number** in the stats strip updates from the `basket:results` event that `draw()` sends (`public/js/kpis.js`).
 
 ---
 
@@ -328,3 +330,137 @@ tail -f logs/app-$(date +%F).log
 | Groq down / no key | `LlmService` returns `null` | still works: rules parse the list, no AI summary |
 | No product matches | `PlatformsService.search` | "No matching products for this basket" |
 | Server slower than 90 s / not running | `api.js` | timeout / "Could not reach the server" |
+
+---
+
+## Agent flow
+
+The shopping assistant, opened from the floating **Ask assistant** button (bottom right; a bottom sheet on phones). The AI model **decides what to do next** (search, compare, ask you), our code **does the work and the maths**, and the result goes back to the model until it can answer.
+
+### Agent vs Compare prices
+
+| | Compare prices (search flow) | Shopping assistant (agent flow) |
+|---|---|---|
+| Input | The basket tokens in the hero input | Free chat in the floating assistant: "I need atta and butter" |
+| Who picks the steps | Fixed: parse → prices → optimize → summary | The AI model, by calling tools |
+| Can ask you questions | No | Yes (`ask_user`, with tap-to-answer options) |
+| Shows top 10 products | No | Yes, for vague items |
+| Who does the maths | `BasketOptimizerService` | The same `BasketOptimizerService`, through a tool |
+
+### The loop at a glance
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Browser (js/agent.js)
+    participant Agent as AgentService
+    participant LLM as Groq LLM
+    participant Tools as AgentToolsService
+
+    User->>UI: "I need atta and butter"
+    UI->>Agent: POST /api/agent/chat { messages, location }
+    loop up to 6 model calls
+        Agent->>LLM: chat(messages, tools)
+        alt model wants a tool
+            LLM-->>Agent: tool_calls: search_products / optimize_basket
+            Agent->>Tools: run(name, args)
+            Tools-->>Agent: result → added to messages
+        else model asks the user
+            LLM-->>Agent: ask_user(question, options)
+            Agent-->>UI: reply = question, options
+        else model answers
+            LLM-->>Agent: text reply
+            Agent-->>UI: reply (+ basket, searches, steps)
+        end
+    end
+    UI->>User: reply, top-10 tables, option chips, price comparison
+```
+
+### Step by step
+
+#### 1. Browser — `public/js/agent.js`
+
+- You type a message (or tap an option). `send()` checks the pincode, adds your message to `history`, and shows a "Thinking…" bubble.
+- `agentChat(history, location)` in `public/js/api.js` calls:
+
+```http
+POST /api/agent/chat
+{
+  "messages": [ { "role": "user", "content": "I need atta and butter" } ],
+  "location": { "latitude": 18.508885, "longitude": 73.956373, "pincode": "412307" }
+}
+```
+
+The server keeps no chat state: the browser sends the whole conversation (last 20 messages) every time.
+
+#### 2. Controller + DTO — `src/modules/agent/agent.controller.ts`, `dto/agent-chat.dto.ts`
+
+`@Controller('agent')` + `@Post('chat')` → **`POST /api/agent/chat`**. `AgentChatDto` requires 1–20 messages (`role` user/assistant, `content` ≤ 2000 characters) and a location with a 6-digit pincode. Then `agentService.chat(dto.messages, dto.location)`.
+
+#### 3. The loop — `src/modules/agent/agent.service.ts` → `chat()`
+
+1. Builds the messages: a **system prompt** with the rules + your conversation.
+   - Never guess prices or totals: always use the tools and repeat their numbers.
+   - Vague item (no brand/size) → `search_products`, show the top options, then `ask_user`.
+   - Clear list → `optimize_basket`, then say the cheapest store, total with fees, and whether splitting saves.
+   - Understand Hinglish; short plain-text replies.
+2. Calls **`LlmService.chat(messages, AGENT_TOOLS)`** (`src/modules/llm/llm.service.ts`): one Groq call with the tool definitions.
+3. Looks at the reply:
+   - **Tool calls** → runs each one through `AgentToolsService.run()`, adds the result to the messages as a `tool` message, and loops back to step 2.
+   - **`ask_user`** → stops and returns the question and options to you. Your answer comes as the next chat message.
+   - **Plain text** → done; returns it as the reply.
+4. Stops after **6 model calls** so it can't loop forever.
+
+Logs:
+```
+# info # AgentService # Start: "I need atta and butter" (1 messages, pincode 412307)
+# info # LlmService # chat → qwen/qwen3.8-27b: 364ms, 908 tokens, tools: search_products, search_products
+# info # AgentService # Step 1: search_products({"query":"atta"}) → 10 products for "atta", best: Patanjali Shudh Chakki Atta, 10 kg (10ms)
+# info # AgentService # Step 1: search_products({"query":"butter"}) → 10 products for "butter", best: Britannia Salted Butter, 500 g (5ms)
+# info # LlmService # chat → qwen/qwen3.8-27b: 1226ms, 2940 tokens, tools: ask_user
+# info # AgentService # Asks user: "Which atta and butter do you want?" (1709ms)
+```
+
+#### 4. The tools — `src/modules/agent/agent-tools.service.ts`
+
+`AGENT_TOOLS` describes them to the model (name, purpose, JSON parameters). Each one returns compact `data` for the model, a one-line `summary` for logs, and extra results for the dashboard.
+
+| Tool | What it does | Uses |
+|---|---|---|
+| `search_products(query, limit)` | **Top 10 products** for one item across all stores. Same product on several stores counts once, at its cheapest in-stock price. Score = 45% value (price per 100 g/ml or per piece) + 35% rating + 20% review count, + boost for the brand you asked for | `PriceFetcherService` → `PlatformsService` (SQLite) |
+| `optimize_basket(items)` | The full optimizer, exactly like Compare prices: best single store with fees, every store's total, the cheapest split | `BasketService.optimizeBasket(..., { withSummary: false })` |
+| `ask_user(question, options)` | Pauses and asks you; handled inside `AgentService` | — |
+
+#### 5. Response
+
+```jsonc
+{
+  "reply": "Which atta and butter should I add?",
+  "options": ["Best value for both", "Fortune atta 5kg + Amul salted 200g", "..."],
+  "searches": [ { "query": "atta", "products": [ { "rank": 1, "product": "Patanjali Shudh Chakki Atta, 10 kg", "cheapestPrice": 308, "cheapestAt": "JioMart Quick", "pricePerUnit": "₹3.1/100g", "rating": 4.6, "reviews": 204 } ] } ],
+  "steps": [ { "tool": "search_products", "args": { "query": "atta" }, "summary": "10 products for \"atta\"...", "ms": 10 } ],
+  "basket": { /* full UniversalBasketResponse, only when optimize_basket ran */ }
+}
+```
+
+#### 6. Back in the browser — `public/js/agent.js` → `replyHtml()`
+
+- The reply text.
+- A **top-10 table** per search (product, best price and store, price per unit, rating).
+- **Option chips**: tapping one sends it as your next message.
+- **"How I got this"**: every tool call with its arguments, result and time.
+- If `basket` is present, `renderResults(basket)` (`public/js/results.js`) draws the full price comparison on the page, the same view as Compare prices, and the reply gets a **View full comparison** button that closes the panel and scrolls to it.
+
+### Example conversation
+
+1. **You:** "I need atta and butter"
+   **Agent:** calls `search_products("atta")` and `search_products("butter")` → shows two top-10 tables → asks "Which atta and butter should I add?" with options.
+2. **You:** tap "Fortune atta 5kg + Amul salted 200g"
+   **Agent:** calls `optimize_basket(["fortune atta 5kg", "amul salted butter 200g"])` → "Cheapest: Flipkart Minutes — ₹278 total (items ₹275 + ₹3 fees)… No split saves more." The full comparison appears below.
+
+### Limits to know
+
+- **Groq free tier: 1,000 output tokens per minute** for this model. That's about 3–4 agent turns a minute. Past it, Groq slows down or refuses; the agent then says "The free AI tier is busy… try again in N seconds". A turn normally takes 1–8 seconds, but can take ~30 seconds right after the limit is hit.
+- **`max_tokens` is 1,500.** Lower values cut tool calls short (the model reasons before writing the call), which Groq reports as "Failed to call a function".
+- Prices are the sample database, like everywhere else in the app.
+
