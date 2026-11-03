@@ -47,6 +47,7 @@
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
       <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
       <symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
     </defs>
   </svg>
 
@@ -59,10 +60,8 @@
       </a>
 
       <nav class="nav">
-        <p class="nav-heading">Shop</p>
         <a class="nav-item is-active" href="#top"><svg class="icon"><use href="#i-home"/></svg>Dashboard</a>
         <a class="nav-item" href="#basket"><svg class="icon"><use href="#i-basket"/></svg>Smart basket</a>
-        <a class="nav-item" href="#assistant"><svg class="icon"><use href="#i-sparkles"/></svg>AI assistant</a>
         <a class="nav-item" href="#stores"><svg class="icon"><use href="#i-store"/></svg>Stores</a>
 
         <p class="nav-heading">Coming soon</p>
@@ -71,12 +70,6 @@
         <span class="nav-item is-disabled" aria-disabled="true"><svg class="icon"><use href="#i-bell"/></svg>Price alerts<span class="soon">Soon</span></span>
         <span class="nav-item is-disabled" aria-disabled="true"><svg class="icon"><use href="#i-tag"/></svg>Coupons<span class="soon">Soon</span></span>
       </nav>
-
-      <div class="sidebar-promo">
-        <p class="promo-title"><svg class="icon"><use href="#i-sparkles"/></svg>SmartBasket Pro</p>
-        <p>Auto-apply coupons and order from every store in one tap.</p>
-        <button class="btn btn-promo" type="button" disabled>Join the waitlist · soon</button>
-      </div>
 
       <div class="nav nav-bottom">
         <span class="nav-item is-disabled" aria-disabled="true"><svg class="icon"><use href="#i-sliders"/></svg>Settings<span class="soon">Soon</span></span>
@@ -98,14 +91,12 @@
           <kbd class="kbd" aria-hidden="true">⌘K</kbd>
         </form>
 
-        <button class="location-pill" id="location-open" type="button" aria-haspopup="dialog">
-          <svg class="icon"><use href="#i-pin"/></svg>
-          <span class="location-text"><span class="location-label">Deliver to</span><span id="location-label">Gopalpatti, Pune · 412307</span></span>
-          <svg class="icon icon-sm"><use href="#i-chevron-down"/></svg>
-        </button>
-
         <div class="topbar-actions">
-          <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch light or dark theme"></button>
+          <button class="location-pill" id="location-open" type="button" aria-haspopup="dialog" aria-label="Change delivery location">
+            <svg class="icon"><use href="#i-pin"/></svg>
+            <span id="location-label">Gopalpatti, Pune · 412307</span>
+            <svg class="icon icon-sm"><use href="#i-chevron-down"/></svg>
+          </button>
 
           <div class="menu-wrap">
             <button class="icon-btn" type="button" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" data-menu="notifications-menu">
@@ -124,14 +115,13 @@
           <div class="menu-wrap">
             <button class="avatar-btn" type="button" aria-label="Account menu" aria-haspopup="true" aria-expanded="false" data-menu="profile-menu">
               <span class="avatar" aria-hidden="true">G</span>
-              <span class="avatar-name">Guest</span>
-              <svg class="icon icon-sm"><use href="#i-chevron-down"/></svg>
             </button>
             <div class="menu" id="profile-menu" hidden>
               <div class="menu-profile">
                 <span class="avatar avatar-lg" aria-hidden="true">G</span>
                 <div><p><strong>Guest</strong></p><p class="meta">Sign in to save lists and orders</p></div>
               </div>
+              <button class="menu-item" id="theme-toggle" type="button"></button>
               <span class="menu-item is-disabled"><svg class="icon"><use href="#i-user"/></svg>Profile<span class="soon">Soon</span></span>
               <span class="menu-item is-disabled"><svg class="icon"><use href="#i-pin"/></svg>Saved addresses<span class="soon">Soon</span></span>
               <span class="menu-item is-disabled"><svg class="icon"><use href="#i-wallet"/></svg>Payment methods<span class="soon">Soon</span></span>
@@ -142,87 +132,59 @@
       </header>
 
       <main class="content" id="top">
-        <div class="page-header">
-          <div>
-            <p class="eyebrow">Dashboard</p>
-            <h1>Find the cheapest basket near you</h1>
-            <p class="page-sub">Compare 6 quick-commerce stores at once, with every fee included.</p>
-          </div>
-          <span class="chip-status"><span class="pulse" aria-hidden="true"></span>Sample prices · demo</span>
-        </div>
+        <!-- Hero: the basket is the main action -->
+        <section class="hero" id="basket" aria-labelledby="hero-title">
+          <h1 id="hero-title">What do you need today?</h1>
+          <p class="hero-sub">Add your list. We compare 6 stores near you and include every fee, so the total is what you actually pay.</p>
 
-        <!-- KPI cards (filled by js/kpis.js) -->
-        <section class="kpis" aria-label="Key numbers">
-          <article class="kpi">
-            <span class="kpi-icon"><svg class="icon"><use href="#i-store"/></svg></span>
-            <div><p class="kpi-label">Stores near you</p><p class="kpi-value" id="kpi-stores">–</p><p class="kpi-sub" id="kpi-stores-sub">Loading…</p></div>
-          </article>
-          <article class="kpi">
-            <span class="kpi-icon"><svg class="icon"><use href="#i-truck"/></svg></span>
-            <div><p class="kpi-label">Free delivery from</p><p class="kpi-value" id="kpi-free">–</p><p class="kpi-sub" id="kpi-free-sub">Loading…</p></div>
-          </article>
-          <article class="kpi">
-            <span class="kpi-icon"><svg class="icon"><use href="#i-wallet"/></svg></span>
-            <div><p class="kpi-label">Best basket total</p><p class="kpi-value" id="kpi-best">–</p><p class="kpi-sub" id="kpi-best-sub">Compare a basket to see it</p></div>
-          </article>
-          <article class="kpi kpi-accent">
-            <span class="kpi-icon"><svg class="icon"><use href="#i-trending-down"/></svg></span>
-            <div><p class="kpi-label">You save vs priciest store</p><p class="kpi-value" id="kpi-saving">–</p><p class="kpi-sub" id="kpi-saving-sub">Compare a basket to see it</p></div>
-          </article>
+          <div class="composer">
+            <svg class="icon composer-icon"><use href="#i-basket"/></svg>
+            <form id="add-form" class="composer-form">
+              <ul id="basket-list" class="tokens" aria-label="Items in your basket"></ul>
+              <input id="item-input" type="text" placeholder="Add an item, e.g. 12 eggs" autocomplete="off" aria-label="Add an item to your basket">
+            </form>
+            <button id="compare-btn" class="btn btn-primary btn-lg" type="button">Compare prices</button>
+          </div>
+
+          <div class="suggestions">
+            <span class="suggestions-label">Try</span>
+            <div id="presets" class="chips"></div>
+          </div>
+          <p id="status" class="status" role="status"></p>
         </section>
 
-        <div class="dashboard-grid">
-          <!-- Left: build the basket, then results -->
-          <div class="col-main">
-            <section class="card" id="basket" aria-labelledby="basket-title">
-              <header class="card-header">
-                <div>
-                  <h2 class="card-title" id="basket-title">Smart basket <span id="item-count" class="count"></span></h2>
-                  <p class="card-sub">Add what you need. Sizes, counts and Hinglish work: “atta 5kg”, “12 eggs”, “doodh 1L”.</p>
-                </div>
-              </header>
-              <form id="add-form" class="add-row">
-                <input id="item-input" type="text" placeholder="Add an item, e.g. amul butter 500g" autocomplete="off" aria-label="Item to add">
-                <button class="btn btn-ghost" type="submit"><svg class="icon"><use href="#i-plus"/></svg>Add</button>
-              </form>
-              <div id="presets" class="chips"></div>
-              <ul id="basket-list" class="basket-list"></ul>
-              <div class="card-footer">
-                <p id="status" class="status" role="status"></p>
-                <button id="compare-btn" class="btn btn-primary btn-lg" type="button">Compare prices</button>
-              </div>
-            </section>
-
-            <section id="results" class="results" aria-live="polite"></section>
+        <!-- Three quiet numbers (js/kpis.js) -->
+        <section class="stats" aria-label="Key numbers">
+          <div class="stat-seg">
+            <span class="seg-icon"><svg class="icon"><use href="#i-store"/></svg></span>
+            <div><p class="seg-label">Stores near you</p><p class="seg-value" id="kpi-stores">–</p></div>
           </div>
-
-          <!-- Right: assistant and stores -->
-          <div class="col-side">
-            <section class="card agent-panel" id="assistant" aria-labelledby="assistant-title">
-              <header class="card-header">
-                <div>
-                  <h2 class="card-title" id="assistant-title"><span class="title-icon"><svg class="icon"><use href="#i-sparkles"/></svg></span>AI shopping assistant</h2>
-                  <p class="card-sub">Ask in plain words. It searches, asks, and finds the cheapest store.</p>
-                </div>
-              </header>
-              <div id="agent-messages" class="agent-messages" aria-live="polite"></div>
-              <form id="agent-form" class="agent-form">
-                <input id="agent-input" type="text" placeholder="e.g. atta, butter and 12 eggs" autocomplete="off" aria-label="Message to the assistant">
-                <button class="btn btn-primary btn-icon" type="submit" aria-label="Send"><svg class="icon"><use href="#i-send"/></svg></button>
-              </form>
-            </section>
-
-            <section class="card" id="stores" aria-labelledby="stores-title">
-              <header class="card-header">
-                <div>
-                  <h2 class="card-title" id="stores-title">Stores in your area</h2>
-                  <p class="card-sub">Delivery time and fees we include in every total.</p>
-                </div>
-              </header>
-              <ul class="store-list" id="store-list"><li class="meta">Loading stores…</li></ul>
-            </section>
+          <div class="stat-seg">
+            <span class="seg-icon"><svg class="icon"><use href="#i-truck"/></svg></span>
+            <div><p class="seg-label">Free delivery from</p><p class="seg-value" id="kpi-free">–</p></div>
           </div>
-        </div>
+          <div class="stat-seg">
+            <span class="seg-icon seg-accent"><svg class="icon"><use href="#i-trending-down"/></svg></span>
+            <div><p class="seg-label">Your saving</p><p class="seg-value" id="kpi-saving">Compare to see</p></div>
+          </div>
+        </section>
+
+        <!-- Winner card, comparison table, split plan (js/results.js) -->
+        <section id="results" class="results" aria-live="polite"></section>
+
+        <!-- Store directory, collapsed by default (js/kpis.js) -->
+        <details class="accordion" id="stores">
+          <summary>
+            <span class="seg-icon"><svg class="icon"><use href="#i-store"/></svg></span>
+            <span class="accordion-text">
+              <strong>Stores in your area</strong>
+              <span class="meta" id="stores-summary">Loading stores…</span>
+            </span>
+            <span class="store-dots" id="store-dots" aria-hidden="true"></span>
+            <span class="chevron" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-chevron-down"/></svg></span>
+          </summary>
+          <ul class="store-list" id="store-list"></ul>
+        </details>
 
         <footer class="page-footer">
           <p>SmartBasket demo · Prices, ratings and fees are sample data, not real store prices.</p>
@@ -230,6 +192,28 @@
       </main>
     </div>
   </div>
+
+  <!-- ── AI assistant: floating button + panel (js/agent.js) ───────────────── -->
+  <button class="fab" id="assistant-fab" type="button" aria-controls="assistant" aria-expanded="false">
+    <span class="fab-icon"><svg class="icon"><use href="#i-sparkles"/></svg></span>
+    <span class="fab-label">Ask assistant</span>
+  </button>
+
+  <section class="assistant-panel" id="assistant" aria-labelledby="assistant-title" hidden>
+    <header class="assistant-head">
+      <span class="seg-icon seg-accent-soft"><svg class="icon"><use href="#i-sparkles"/></svg></span>
+      <div class="assistant-title">
+        <h2 id="assistant-title">Shopping assistant</h2>
+        <p class="meta"><span class="online-dot" aria-hidden="true"></span>Searches, asks and finds the cheapest store</p>
+      </div>
+      <button class="icon-btn" id="assistant-close" type="button" aria-label="Close assistant"><svg class="icon"><use href="#i-x"/></svg></button>
+    </header>
+    <div id="agent-messages" class="agent-messages" aria-live="polite"></div>
+    <form id="agent-form" class="agent-form">
+      <input id="agent-input" type="text" placeholder="Ask anything, e.g. 12 eggs and doodh" autocomplete="off" aria-label="Message to the assistant">
+      <button class="btn btn-primary btn-icon" type="submit" aria-label="Send"><svg class="icon"><use href="#i-send"/></svg></button>
+    </form>
+  </section>
 
   <!-- ── Delivery location dialog (js/location.js) ─────────────────────────── -->
   <dialog class="dialog" id="location-dialog" aria-labelledby="location-dialog-title">

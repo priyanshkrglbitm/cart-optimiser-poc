@@ -1,33 +1,29 @@
-// Draws everything on the right: summary, AI insight, store cards, split plan.
+// Draws the results: a winner card for the selected store, a table comparing every store, and the split plan.
+// Click a row in the table to look at that store's basket in the card.
 
-import { escapeHtml, rupees } from './utils.js';
+import { escapeHtml, rupees, storeAvatar } from './utils.js';
 
 const resultsEl = document.getElementById('results');
 
 // Last server response. Store totals change here when the user picks a different product.
 let data = null;
+let selectedId = null; // store shown in the card; null = the cheapest
 
 // ---------------------------------------------------------------------------
 // Screens
 // ---------------------------------------------------------------------------
 
 export function renderEmpty() {
-  resultsEl.innerHTML = `
-    <div class="empty">
-      <div class="empty-icon" aria-hidden="true">🧺</div>
-      <h2>Find the cheapest way to buy your basket</h2>
-      <p>Add items and set your location, then press <strong>Compare prices</strong>.
-         You'll see each store's total and whether splitting the order saves money.</p>
-    </div>`;
+  resultsEl.innerHTML = '';
 }
 
 export function renderLoading(itemCount) {
   resultsEl.innerHTML = `
     <div class="loading">
       <div class="spinner" aria-hidden="true"></div>
-      <span>Checking ${itemCount} item${itemCount > 1 ? 's' : ''} across stores. This can take up to a minute.</span>
+      <span>Checking ${itemCount} item${itemCount > 1 ? 's' : ''} across stores…</span>
     </div>
-    <div class="store-grid">${'<div class="store-card skeleton"></div>'.repeat(3)}</div>`;
+    <div class="skeleton"></div>`;
 }
 
 export function renderError(message) {
@@ -36,10 +32,11 @@ export function renderError(message) {
 
 export function renderResults(response) {
   data = response;
+  selectedId = null;
   draw();
 }
 
-/** Tells the rest of the page (KPI cards) that totals changed. */
+/** Tells the rest of the page (the savings number) that totals changed. */
 function announce() {
   document.dispatchEvent(new CustomEvent('basket:results', { detail: data }));
 }
@@ -66,50 +63,24 @@ function draw() {
   stores.sort((a, b) =>
     Number(b.isFullyAvailable) - Number(a.isFullyAvailable) || b.foundItemsCount - a.foundItemsCount || a.totalCost - b.totalCost);
   const best = stores[0].isFullyAvailable ? stores[0] : null;
+  const shown = stores.find(s => s.platform.id === selectedId) || stores[0];
 
+  const names = data.queryItems.map(q => q.rawQuery).join(' · ');
   resultsEl.innerHTML = `
-    <p class="sample-note">Sample data: prices, ratings and fees are generated for this demo. They are not real store prices.</p>
-    ${summaryHtml(best)}
-    ${insightHtml()}
-    <h2 class="section-heading">Stores</h2>
-    <div class="store-grid">${stores.map(s => storeCardHtml(s, s === best)).join('')}</div>
-    ${noResults.length ? `<p class="note">No matching products at ${noResults.map(s => escapeHtml(s.platform.name)).join(', ')}.</p>` : ''}
-    ${splitPlanHtml()}`;
-}
-
-function summaryHtml(best) {
-  const itemCount = data.queryItems.length;
-  const split = data.splitCartRecommendation;
-  const orders = new Set(split.assignments.map(a => a.chosenPlatform)).size;
-
-  const bestStat = best
-    ? `<div class="stat-value">${rupees(best.totalCost)}</div>
-       <div class="stat-sub">at ${escapeHtml(best.platform.name)}, all ${itemCount} items</div>`
-    : `<div class="stat-value">–</div>
-       <div class="stat-sub">No single store has all ${itemCount} items</div>`;
-
-  const splitStat = split.assignments.length
-    ? `<div class="stat-value">${rupees(split.optimizedTotalCost)}</div>
-       <div class="stat-sub">${orders} order${orders > 1 ? 's' : ''}, all fees included${
-         split.savingsVersusBestSinglePlatform > 0 ? ` · <strong>saves ${rupees(split.savingsVersusBestSinglePlatform)}</strong>` : ''
-       }${split.assignments.length < itemCount ? ` · covers ${split.assignments.length} of ${itemCount} items` : ''}</div>`
-    : `<div class="stat-value">–</div><div class="stat-sub">Nothing available to split</div>`;
-
-  return `
-    <div class="summary">
-      <div class="stat"><div class="stat-label">Best single store</div>${bestStat}</div>
-      <div class="stat stat-accent"><div class="stat-label">Cheapest split</div>${splitStat}</div>
-    </div>`;
-}
-
-function insightHtml() {
-  const prefix = '[AI Insights]: ';
-  const line = data.agentLogs.find(log => log.startsWith(prefix));
-  return line ? `<p class="insight">✨ ${escapeHtml(line.slice(prefix.length))}</p>` : '';
+    <div class="results-head">
+      <div>
+        <h2>Best price for your ${data.queryItems.length} item${data.queryItems.length > 1 ? 's' : ''}</h2>
+        <p class="meta">${escapeHtml(names)} · every fee included</p>
+      </div>
+      <span class="pill-warn" title="Prices, ratings and fees are generated for this demo">Sample prices</span>
+    </div>
+    ${winnerHtml(shown, stores, shown === best)}
+    ${compareHtml(stores, best, shown, noResults)}
+    ${splitHtml(stores)}`;
 }
 
 // ---------------------------------------------------------------------------
-// Store cards
+// Winner card
 // ---------------------------------------------------------------------------
 
 const lineCost = product => product.price * (product.multiplier || 1);
@@ -130,30 +101,57 @@ function feesText(fees) {
   return parts.length ? parts.join(' · ') : 'no fees';
 }
 
-function storeCardHtml(store, isBest) {
+function winnerHtml(store, stores, isBest) {
   const p = store.platform;
+  const complete = stores.filter(s => s.isFullyAvailable);
+  const cheapest = complete[0];
+  const priciest = complete.length > 1 ? complete[complete.length - 1] : null;
+
+  let saving = '';
+  if (isBest && priciest && priciest.totalCost > store.totalCost) {
+    saving = `<p class="saving-pill"><svg class="icon icon-sm"><use href="#i-trending-down"/></svg>You save ${rupees(priciest.totalCost - store.totalCost)} vs ${escapeHtml(priciest.platform.name)}</p>`;
+  } else if (!isBest && cheapest && store.isFullyAvailable) {
+    saving = `<p class="saving-pill is-more">${rupees(store.totalCost - cheapest.totalCost)} more than ${escapeHtml(cheapest.platform.name)}</p>`;
+  }
+
   return `
-    <article class="store-card${isBest ? ' is-best' : ''}">
-      <div class="store-head">
-        <div>
-          <h3 class="store-name">${escapeHtml(p.name)}</h3>
-          <p class="meta">${escapeHtml(p.estimatedDelivery)}</p>
+    <article class="winner${isBest ? ' is-best' : ''}">
+      <div class="winner-summary">
+        <span class="badge">${isBest ? 'Cheapest store' : 'Selected store'}</span>
+        <div class="winner-store">
+          ${storeAvatar(p)}
+          <div>
+            <h3>${escapeHtml(p.name)}</h3>
+            <p class="meta">${escapeHtml(p.estimatedDelivery)}</p>
+          </div>
         </div>
-        ${isBest ? '<span class="badge">Cheapest</span>' : ''}
+        <p class="winner-price">${rupees(store.totalCost)}</p>
+        <div>
+          <p class="meta">Items ${rupees(store.subtotalPrice)} + fees ${rupees(store.fees.total)}</p>
+          <p class="meta">${feesText(store.fees)}${p.freeDeliveryThreshold ? ` · free above ${rupees(p.freeDeliveryThreshold)}` : ''}</p>
+        </div>
+        ${saving}
+        <p class="availability ${store.isFullyAvailable ? 'ok' : 'partial'}">${store.foundItemsCount} of ${store.totalRequestedItems} items available</p>
       </div>
-      <p class="store-total">${rupees(store.totalCost)}</p>
-      <p class="meta">Items ${rupees(store.subtotalPrice)} + fees ${rupees(store.fees.total)}</p>
-      <p class="meta">${feesText(store.fees)}${p.freeDeliveryThreshold ? ` · free delivery above ${rupees(p.freeDeliveryThreshold)}` : ''}</p>
-      <p class="availability ${store.isFullyAvailable ? 'ok' : 'partial'}">${store.foundItemsCount} of ${store.totalRequestedItems} items available</p>
-      <ul class="lines">${store.items.map((item, i) => lineHtml(store, item, i)).join('')}</ul>
+      <div class="winner-items">
+        <p class="overline">What you get at ${escapeHtml(p.name)}</p>
+        <ul class="lines">${store.items.map((item, i) => lineHtml(store, item, i)).join('')}</ul>
+        ${insightHtml()}
+      </div>
     </article>`;
+}
+
+function insightHtml() {
+  const prefix = '[AI Insights]: ';
+  const line = data.agentLogs.find(log => log.startsWith(prefix));
+  return line ? `<p class="insight"><svg class="icon"><use href="#i-sparkles"/></svg><span>${escapeHtml(line.slice(prefix.length))}</span></p>` : '';
 }
 
 function lineHtml(store, item, index) {
   const query = escapeHtml(data.queryItems[index]?.rawQuery);
 
   if (!item) {
-    return `<li class="line"><div class="line-main"><span class="line-query">${query}</span><span class="line-missing">Not available</span></div></li>`;
+    return `<li class="line"><div class="line-main"><span class="line-query">${query}</span><span class="line-missing">Not available at this store</span></div></li>`;
   }
 
   const packs = item.multiplier > 1 ? `<span class="tag" title="Packs needed to reach the size you asked for">${item.multiplier}×</span>` : '';
@@ -184,7 +182,48 @@ function lineHtml(store, item, index) {
     </li>`;
 }
 
-// When the user picks another product in a store card, recalculate that store's totals.
+// ---------------------------------------------------------------------------
+// Comparison table
+// ---------------------------------------------------------------------------
+
+function compareHtml(stores, best, shown, noResults) {
+  const rows = stores.map(s => {
+    const isBest = s === best;
+    const diff = isBest
+      ? '<span class="badge">Cheapest</span>'
+      : best && s.isFullyAvailable ? `<span class="cell-more">+${rupees(s.totalCost - best.totalCost)}</span>` : '<span class="cell-muted">–</span>';
+    return `
+      <button class="compare-row${isBest ? ' is-best' : ''}${s === shown ? ' is-selected' : ''}" type="button" data-pick="${escapeHtml(s.platform.id)}" aria-label="Show ${escapeHtml(s.platform.name)} basket">
+        <span class="compare-store">${storeAvatar(s.platform)}<span><strong>${escapeHtml(s.platform.name)}</strong><span class="meta">${escapeHtml(s.platform.estimatedDelivery)}</span></span></span>
+        <span class="col-num col-items cell-muted">${s.foundItemsCount} of ${s.totalRequestedItems}</span>
+        <span class="col-num col-fees cell-muted">${rupees(s.fees.total)}</span>
+        <span class="col-num cell-total">${rupees(s.totalCost)}</span>
+        <span class="col-num">${diff}</span>
+      </button>`;
+  }).join('');
+
+  const missing = noResults.length
+    ? `<p class="compare-note">No matching products at ${noResults.map(s => escapeHtml(s.platform.name)).join(', ')}.</p>` : '';
+  return `
+    <div class="compare">
+      <div class="compare-head" aria-hidden="true">
+        <span>All stores</span><span class="col-num col-items">Items</span><span class="col-num col-fees">Fees</span><span class="col-num">Total</span><span class="col-num">vs best</span>
+      </div>
+      ${rows}
+      ${missing}
+    </div>`;
+}
+
+// Click a store in the table: show that store's basket in the card.
+resultsEl.addEventListener('click', e => {
+  const row = e.target.closest('[data-pick]');
+  if (!row || !data) return;
+  selectedId = row.dataset.pick;
+  draw();
+  resultsEl.querySelector('.winner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+// When the user picks another product in the card, recalculate that store's totals.
 resultsEl.addEventListener('change', e => {
   const select = e.target.closest('select[data-store]');
   if (!select || !data) return;
@@ -202,6 +241,7 @@ resultsEl.addEventListener('change', e => {
   store.foundItemsCount = found.length;
   store.isFullyAvailable = found.length === store.totalRequestedItems;
 
+  selectedId = store.platform.id; // keep looking at the store the user just edited
   draw();
 });
 
@@ -209,7 +249,7 @@ resultsEl.addEventListener('change', e => {
 // Split plan
 // ---------------------------------------------------------------------------
 
-function splitPlanHtml() {
+function splitHtml() {
   const split = data.splitCartRecommendation;
   if (!split.assignments.length) return '';
 
@@ -222,14 +262,16 @@ function splitPlanHtml() {
 
   if (byStore.size === 1) {
     const [storeName] = byStore.keys();
-    return `<h2 class="section-heading">Split plan</h2>
-      <p class="note">Splitting doesn't save money here. Order everything from ${escapeHtml(storeName)}.</p>`;
+    return `
+      <div class="split-tip">
+        <span class="seg-icon"><svg class="icon icon-sm"><use href="#i-sparkles"/></svg></span>
+        <span>Splitting your order across stores would not save money. One order from <strong>${escapeHtml(storeName)}</strong> is the cheapest.</span>
+      </div>`;
   }
 
   const feesOf = name => split.fees.find(f => f.platform === name)?.fees || feesFor({}, 0);
-
   return `
-    <h2 class="section-heading">Split plan</h2>
+    <h2 class="section-heading">Split into ${byStore.size} orders and save ${rupees(split.savingsVersusBestSinglePlatform)}</h2>
     <div class="split-plan">
       ${[...byStore].map(([storeName, assignments]) => `
         <div class="split-store">

@@ -24,7 +24,12 @@ function initSidebar() {
 
   toggle.addEventListener('click', () => setOpen(!sidebar.classList.contains('is-open')));
   backdrop.addEventListener('click', () => setOpen(false));
-  sidebar.addEventListener('click', e => { if (e.target.closest('a.nav-item')) setOpen(false); });
+  sidebar.addEventListener('click', e => {
+    const link = e.target.closest('a.nav-item');
+    if (!link) return;
+    setOpen(false);
+    if (link.getAttribute('href') === '#stores') document.getElementById('stores').open = true;
+  });
 }
 
 // Notifications and profile dropdowns: one open at a time; outside click or Escape closes
@@ -64,8 +69,7 @@ function initSearch(askAssistant) {
     if (!text) return;
     input.value = '';
     input.blur();
-    document.getElementById('assistant').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    askAssistant(text);
+    askAssistant(text); // opens the assistant panel
   });
 
   document.addEventListener('keydown', e => {
